@@ -37,6 +37,9 @@
     <Compile Include="LuaState.cs" />
     <Compile Include="LuaTable.cs" />
     <Compile Include="LuaValue.cs" />
+    <Compile Include="ZIO.cs" />
+    <Compile Include="Function.cs" />
+    <Compile Include="Consts.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

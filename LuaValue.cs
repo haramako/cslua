@@ -40,11 +40,7 @@ namespace TLua
 		ulong val_;
 		object obj_;
 
-		public static LuaValue Nil {
-			get {
-				return new LuaValue((object)null);
-			}
-		}
+		public static readonly LuaValue Nil = new LuaValue() { val_ = NilMark, obj_ = null };
 
 		public LuaValue(LuaValue v)
 		{
@@ -52,7 +48,7 @@ namespace TLua
 			obj_ = v.obj_;
 		}
 
-		public LuaValue(long v)
+		public LuaValue(int v)
 		{
 			val_ = 0;
 			obj_ = null;
@@ -133,14 +129,14 @@ namespace TLua
 		}
 
 		// TODO: 48bit以上の扱い
-		public long AsInt {
+		public int AsInt {
 			get {
 				checkType(ValueType.Integer);
 				ulong result = val_ & ValueMask;
 				if ((result & SignMask) != 0) {
-					return (long)(result | MinusBits);
+					return (int)(result | MinusBits);
 				} else {
-					return (long)result;
+					return (int)result;
 				}
 			}
 			set {
@@ -221,6 +217,28 @@ namespace TLua
 		//====================================================
 		// Operators
 		//====================================================
+
+		public override string ToString()
+		{
+			switch (ValueType) {
+			case ValueType.Nil:
+				return "nil";
+			case ValueType.Integer:
+				return AsInt.ToString();
+			case ValueType.Float:
+				return AsFloat.ToString();
+			case ValueType.String:
+				return AsString;
+			case ValueType.Bool:
+				return AsBool ? "true" : "false";
+			case ValueType.Table:
+				return "table(" + AsTable.Size + ")";
+			case ValueType.UserData:
+				return "userdata(" + obj_.GetHashCode() + ")";
+			default:
+				return "unkonwn value type " + ValueType;
+			}
+		}
 
 		public bool Equals(LuaValue x)
 		{

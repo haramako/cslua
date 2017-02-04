@@ -1,10 +1,131 @@
 ﻿using System;
+using System.Collections.Generic;
+
 namespace TLua
 {
-	public class LuaTable
+	public sealed class LuaTable
 	{
+		List<LuaValue> array_;
+		Dictionary<string, LuaValue> map_;
+
 		public LuaTable()
 		{
+			array_ = new List<LuaValue>();
+			map_ = new Dictionary<string,LuaValue>();
+		}
+
+		public LuaTable(int arrayCapacity, int mapCapacity = 0)
+		{
+			if (arrayCapacity > 0) {
+				array_ = new List<LuaValue>(arrayCapacity);
+				Resize(arrayCapacity);
+			}
+			if (mapCapacity > 0) {
+				map_ = new Dictionary<string,LuaValue>(mapCapacity);
+			}
+		}
+
+		public LuaValue this[int idx]{
+			get {
+				return array_[idx];
+			}
+			set {
+				array_[idx] = value;
+			}
+		}
+
+		public LuaValue this[string idx] {
+			get {
+				return map_[idx];
+			}
+			set {
+				map_[idx] = value;
+			}
+		}
+
+		// luaのインデックス表記を実際のarray_のインデックスに直す
+		// 範囲外の場合は-1を返す
+		int luaIdxToIdx(int idx)
+		{
+			if (idx < 0) {
+				idx = array_.Count + idx;
+			}
+			return idx;
+		}
+
+		public int Size {
+			get {
+				return array_.Count + map_.Count;
+			}
+		}
+
+		public int ArraySize {
+			get {
+				return array_.Count;
+			}
+		}
+
+		public void Resize(int newSize)
+		{
+			if (newSize < array_.Count) {
+				array_.RemoveRange(newSize, array_.Count - newSize);
+			} else {
+				for (int i = array_.Count; i < newSize; i++) {
+					array_.Add(LuaValue.Nil);
+				}
+			}
+		}
+
+		// Lua流のインデックスでアクセスする
+		// - 1はじまり
+		// - -1は配列の一番最後の要素
+		// - サイズ外の場合は、nilを返す
+		public LuaValue GetByLuaIdx(int luaIdx)
+		{
+			var idx = luaIdxToIdx(luaIdx);
+			if (idx >= 0 && idx < array_.Capacity) {
+				return array_[idx];
+			} else {
+				return LuaValue.Nil;
+			}
+		}
+
+		// Lua流のインデックスで値を設定する
+		public void SetByLuaIdx(int luaIdx, LuaValue val)
+		{
+			var idx = luaIdxToIdx(luaIdx);
+			if (idx >= 0) {
+				if (idx >= array_.Count) {
+					Resize(idx+1);
+				}
+				array_[idx] = val;
+			} else {
+				// DO NOTHING	
+			}
+		}
+
+		public LuaValue GetByLuaValue(LuaValue idx)
+		{
+			switch(idx.ValueType){
+			case ValueType.Integer: {
+					var luaIdx = luaIdxToIdx(idx.AsInt);
+					if (luaIdx > 0) {
+						return array_[luaIdx];
+					} else {
+						return LuaValue.Nil;
+					}
+				}
+			case ValueType.String: {
+					LuaValue result;
+					if (map_.TryGetValue(idx.AsString, out result)) {
+						return result;
+					} else {
+						return LuaValue.Nil;
+					}
+				}
+			default:
+				throw new LuaException("invalid indexing");
+			}
 		}
 	}
 }
