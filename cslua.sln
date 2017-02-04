@@ -1,0 +1,23 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cslua", "cslua.csproj", "{DE7EFFBD-1155-4AB4-92F5-DE83FBE7F5BC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{AD929025-169A-4B3B-9C8D-C98ED00C3C88}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DE7EFFBD-1155-4AB4-92F5-DE83FBE7F5BC}.Debug|x86.ActiveCfg = Debug|x86
+		{DE7EFFBD-1155-4AB4-92F5-DE83FBE7F5BC}.Debug|x86.Build.0 = Debug|x86
+		{DE7EFFBD-1155-4AB4-92F5-DE83FBE7F5BC}.Release|x86.ActiveCfg = Release|x86
+		{DE7EFFBD-1155-4AB4-92F5-DE83FBE7F5BC}.Release|x86.Build.0 = Release|x86
+		{AD929025-169A-4B3B-9C8D-C98ED00C3C88}.Debug|x86.ActiveCfg = Debug|x86
+		{AD929025-169A-4B3B-9C8D-C98ED00C3C88}.Debug|x86.Build.0 = Debug|x86
+		{AD929025-169A-4B3B-9C8D-C98ED00C3C88}.Release|x86.ActiveCfg = Release|x86
+		{AD929025-169A-4B3B-9C8D-C98ED00C3C88}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+EndGlobal
