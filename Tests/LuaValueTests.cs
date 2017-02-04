@@ -72,7 +72,7 @@ namespace TLua
 		[TestCase]
 		public void InitTableDataTest()
 		{
-			var t = new LuaTable();
+			var t = new Table();
 			var v = new LuaValue(t);
 			Assert.AreEqual(ValueType.Table, v.ValueType);
 			Assert.AreEqual(t, v.AsTable);
@@ -97,6 +97,52 @@ namespace TLua
 				v.Clear();
 				Assert.AreEqual(ValueType.Nil, v.ValueType);
 				Assert.AreEqual(true, v.IsNil);
+			}
+		}
+
+		[TestCase]
+		public void InitTableTest()
+		{
+			{
+				var t = new Table();
+				var v = new LuaValue(t);
+				Assert.AreEqual(ValueType.Table, v.ValueType);
+				Assert.AreEqual(t, v.AsTable);
+			}
+		}
+
+		public void SampleLuaApi(LuaState L)
+		{
+		}
+
+		[TestCase]
+		public void InitClosureTest()
+		{
+			{
+				var f = new Function() { Upvals = new UpvalTag[] { } };
+				var c = new Closure(f);
+				var v = new LuaValue(c);
+				Assert.AreEqual(ValueType.Closure, v.ValueType);
+				Assert.AreEqual(c, v.AsClosure);
+			}
+
+			{
+				var v = new LuaValue((Closure)null);
+				Assert.AreEqual(ValueType.Nil, v.ValueType);
+			}
+		}
+
+		[TestCase]
+		public void InitLuaApiTest()
+		{
+			{
+				var v = new LuaValue(SampleLuaApi);
+				Assert.AreEqual(ValueType.LuaApi, v.ValueType);
+				Assert.AreEqual((LuaApi)SampleLuaApi, v.AsLuaApi);
+			}
+			{
+				var v = new LuaValue((LuaApi)null);
+				Assert.AreEqual(ValueType.Nil, v.ValueType);
 			}
 		}
 

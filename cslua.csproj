@@ -35,11 +35,15 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="LuaState.cs" />
-    <Compile Include="LuaTable.cs" />
+    <Compile Include="Table.cs" />
     <Compile Include="LuaValue.cs" />
     <Compile Include="ZIO.cs" />
     <Compile Include="Function.cs" />
     <Compile Include="Consts.cs" />
+    <Compile Include="LuaLib\Global.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="LuaLib\" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

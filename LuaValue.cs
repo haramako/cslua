@@ -11,13 +11,18 @@ namespace TLua
 		Bool,
 		String,
 		Table,
+		Object,
 		UserData,
+
+		Closure,
+		LuaApi,
 	}
 
 	public struct LuaValue : IEquatable<LuaValue>
 	{
 		const ulong NanBoxingMask = 0xffff000000000000;
 		const ulong ValueMask = 0x0000ffffffffffff;
+		const ulong SubValueTypeMask = 0xff;
 		const ulong NanBits = 0x7ff8000000000000;
 		const ulong NonFloatBits = 0xfff0000000000000;
 		const ulong SignMask = 0x0000800000000000;
@@ -29,6 +34,9 @@ namespace TLua
 		const ulong BoolMark = (((ulong)ValueType.Bool) << 48) | NonFloatBits;
 		const ulong TableMark = (((ulong)ValueType.Table) << 48) | NonFloatBits;
 		const ulong UserDataMark = (((ulong)ValueType.UserData) << 48) | NonFloatBits;
+		const ulong ObjectMark = (((ulong)ValueType.Object) << 48) | NonFloatBits;
+		const ulong ClosureMark = ObjectMark | (ulong)ValueType.Closure;
+		const ulong LuaApiMark = ObjectMark | (ulong)ValueType.LuaApi;
 
 		// type用の16bit(bit63..48)の情報
 		const int Type16Mask = 0x0007;
@@ -79,10 +87,37 @@ namespace TLua
 			obj_ = null;
 		}
 
-		public LuaValue(LuaTable v)
+		public LuaValue(Table v)
 		{
-			val_ = TableMark;
-			obj_ = v;
+			if (v == null) {
+				val_ = NilMark;
+				obj_ = null;
+			} else {
+				val_ = TableMark;
+				obj_ = v;
+			}
+		}
+
+		public LuaValue(Closure v)
+		{
+			if (v == null) {
+				val_ = NilMark;
+				obj_ = null;
+			} else {
+				val_ = ClosureMark;
+				obj_ = v;
+			}
+		}
+
+		public LuaValue(LuaApi v)
+		{
+			if (v == null) {
+				val_ = NilMark;
+				obj_ = null;
+			} else {
+				val_ = LuaApiMark;
+				obj_ = v;
+			}
 		}
 
 		public LuaValue(object v)
@@ -112,7 +147,12 @@ namespace TLua
 					return ValueType.Float;
 				} else {
 					var type16 = (int)((val_ & NanBoxingMask) >> 48);
-					return (ValueType)(type16 & Type16Mask);
+					var type = (ValueType)(type16 & Type16Mask);
+					if (type == ValueType.Object) {
+						return (ValueType)(val_ & SubValueTypeMask);
+					} else {
+						return type;
+					}
 				}
 			}
 		}
@@ -180,10 +220,10 @@ namespace TLua
 			}
 		}
 
-		public LuaTable AsTable {
+		public Table AsTable {
 			get {
 				checkType(ValueType.Table);
-				return (LuaTable)obj_;
+				return (Table)obj_;
 			}
 			set {
 				val_ = TableMark;
@@ -204,12 +244,44 @@ namespace TLua
 					var type = value.GetType();
 					if (type == typeof(string)) {
 						AsString = (string)value;
-					} else if (type == typeof(LuaTable)) {
-						AsTable = (LuaTable)value;
+					} else if (type == typeof(Table)) {
+						AsTable = (Table)value;
 					} else {
 						val_ = UserDataMark;
 						obj_ = value;
 					}
+				}
+			}
+		}
+
+		public Closure AsClosure {
+			get {
+				checkType(ValueType.Closure);
+				return (Closure)obj_;
+			}
+			set {
+				if (value == null) {
+					val_ = NilMark;
+					obj_ = null;
+				} else {
+					val_ = ClosureMark;
+					obj_ = value;
+				}
+			}
+		}
+
+		public LuaApi AsLuaApi {
+			get {
+				checkType(ValueType.LuaApi);
+				return (LuaApi)obj_;
+			}
+			set {
+				if (value == null) {
+					val_ = NilMark;
+					obj_ = null;
+				} else {
+					val_ = LuaApiMark;
+					obj_ = value;
 				}
 			}
 		}
@@ -235,8 +307,21 @@ namespace TLua
 				return "table(" + AsTable.Size + ")";
 			case ValueType.UserData:
 				return "userdata(" + obj_.GetHashCode() + ")";
+			case ValueType.LuaApi:
+				return "function(native:" + obj_.GetHashCode().ToString("X") + ")";
+			case ValueType.Closure:
+				return "function(" + obj_.GetHashCode().ToString("X") + ")";
 			default:
 				return "unkonwn value type " + ValueType;
+			}
+		}
+
+		public override bool Equals(object obj)
+		{
+			if( obj is LuaValue){
+				return this.Equals((LuaValue)obj);
+			} else {
+				return false;
 			}
 		}
 
@@ -255,6 +340,11 @@ namespace TLua
 			} else {
 				return false;
 			}
+		}
+
+		public override int GetHashCode()
+		{
+			return ((int)val_) ^ (obj_.GetHashCode());
 		}
 
 		public static bool operator ==(LuaValue a, LuaValue b)
