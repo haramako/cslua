@@ -5,6 +5,17 @@ namespace TLua
 {
 	public sealed class Table
 	{
+		public struct Range
+		{
+			public int Start;
+			public int End;
+			public bool Valid {
+				get {
+					return Start >= 0 && End >= 0;
+				}
+			}
+		}
+
 		List<LuaValue> array_;
 		Dictionary<string, LuaValue> map_;
 
@@ -86,6 +97,40 @@ namespace TLua
 			}
 		}
 
+		public Range GetRange(LuaValue start, LuaValue end)
+		{
+			int istart, iend;
+			if (start.IsNil) {
+				istart = 0;
+			} else if (start.IsNumber) {
+				istart = start.ConvertToInt();
+				if (istart < 0) {
+					istart = array_.Count + istart;
+				} else {
+					istart = istart - 1;
+				}
+			} else {
+				throw new LuaException("invalid start index " + start);
+			}
+
+			if (end.IsNil) {
+				iend = array_.Count;
+			} else if (end.IsNumber) {
+				iend = end.ConvertToInt();
+				if (iend < 0) {
+					iend = array_.Count + iend + 1;
+				}
+			} else {
+				throw new LuaException("invalid end index " + start);
+			}
+
+			if (istart < 0 || istart >= array_.Count || iend < 0 || iend > array_.Count) {
+				return new Range() { Start = -1, End = -1 };
+			} else {
+				return new Range() { Start = istart, End = iend };
+			}
+		}
+
 		// Lua流のインデックスでアクセスする
 		// - 1はじまり
 		// - -1は配列の一番最後の要素
@@ -126,8 +171,9 @@ namespace TLua
 		public LuaValue GetByLuaValue(LuaValue idx)
 		{
 			switch(idx.ValueType){
-			case ValueType.Integer: {
-					var rawIdx = luaIdxToRawIdx(idx.AsInt);
+			case ValueType.Integer: 
+			case ValueType.Float: {
+					var rawIdx = luaIdxToRawIdx(idx.ConvertToInt());
 					if (rawIdx >= 0 && rawIdx < array_.Count) {
 						return array_[rawIdx];
 					} else {
@@ -151,8 +197,9 @@ namespace TLua
 		{
 			switch (idx.ValueType) {
 			case ValueType.Integer: 
-				var rawIdx = luaIdxToRawIdx(idx.AsInt);
-				if (rawIdx > 0) {
+			case ValueType.Float:
+				var rawIdx = luaIdxToRawIdx(idx.ConvertToInt());
+				if (rawIdx >= 0) {
 					if (rawIdx >= array_.Count) {
 						Resize(rawIdx + 1);
 					}

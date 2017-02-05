@@ -6,6 +6,10 @@ namespace TLua
 	{
 		public static void Main(string[] args)
 		{
+			if (args.Length == 0) {
+				args = new string[] { "/Users/makoto/cslua/fib.lua" };
+			}
+
 			bool trace = false;
 			foreach (var arg in args) {
 				if (arg == "-t") {

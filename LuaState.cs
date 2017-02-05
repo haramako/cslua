@@ -73,14 +73,16 @@ namespace TLua
 			env_ = new Table();
 
 			LuaLib.Global.Bind(this);
+			env_["_G"] = new LuaValue(env_);
 			LuaLib.T.Bind(this);
 			LuaLib.StdMath.Bind(this);
 			LuaLib.StdString.Bind(this);
+			LuaLib.StdTable.Bind(this);
 		}
 
 		public void LoadFile(string filename)
 		{
-			var p = Process.Start("luac5.3", "-o /tmp/luac.out -l "+ filename );
+			var p = Process.Start("luac5.3", "-o /tmp/luac.out "+ filename );
 			p.WaitForExit();
 			if (p.ExitCode != 0) {
 				throw new Exception("exit code not 0");
@@ -94,6 +96,7 @@ namespace TLua
 				Base = 0, 
 				Prev = null,
 				Wanted = 1, 
+				SavedPc = -1,
 			};
 			var cl = new Closure(chunk.Main);
 			cl.Upvals[0] = new Upval() { Val = new LuaValue(env_), IsOpen = false };
@@ -103,7 +106,7 @@ namespace TLua
 				Base = 3,
 				Prev = rootCi,
 				Wanted = 0,
-				SavedPc = -1,
+				SavedPc = 0,
 			};
 
 			stack_[0] = new LuaValue(new Closure(new Function()));
@@ -142,7 +145,7 @@ namespace TLua
 			}
 		}
 
-		string dump()
+		public string dump()
 		{
 			var sb = new StringBuilder();
 			sb.AppendLine("********DUMP********");
@@ -181,13 +184,22 @@ namespace TLua
 			return stack_[idx];
 		}
 
-		LuaValue[] temp = new LuaValue[16];
+		LuaValue[] temp = new LuaValue[256];
 
 		void copyAndFill(int fromIdx, int fromLen, int toIdx, int toLen)
 		{
+			trace("copy and fill", fromIdx, fromLen, toIdx, toLen);
 			if (fromIdx != toIdx) {
 				var len = Math.Min(fromLen, toLen);
-				Array.Copy(stack_, fromIdx, stack_, toIdx, len);
+				if (fromIdx > toIdx) {
+					for (int i = 0; i< len; i++) {
+						stack_[toIdx + i] = stack_[fromIdx + i];
+					}
+				} else {
+					for (int i = len-1; i >= 0; i--) {
+						stack_[toIdx + i] = stack_[fromIdx + i];
+					}
+				}
 			}
 			for (int n = fromLen; n < toLen; n++) {
 				stack_[toIdx + n].Clear();
@@ -243,6 +255,23 @@ namespace TLua
 		//===========================================
 		// Closure/Upval の操作
 		//===========================================
+
+		Stack<CallInfo> callInfoCache_ = new Stack<CallInfo>();
+
+		CallInfo allocCallInfo()
+		{
+			if (callInfoCache_.Count > 0) {
+				return callInfoCache_.Pop();
+			} else {
+				return new CallInfo();
+			}
+		}
+
+		void releaseCallInfo(CallInfo c)
+		{
+			c.Prev = null;
+			callInfoCache_.Push(c);
+		}
 
 		Closure newClosure(Function func, int baseIdx, Closure enc)
 		{
@@ -300,67 +329,73 @@ namespace TLua
 
 		// nargs 可変引数の数
 		// wanted 想定される返り値の数
-		void precall(bool isTailcall, int func, int nargs, int result, int wanted)
+		bool precall(int func, int nargs, int result, int wanted)
 		{
 			var f = stack_[func];
 			var ftype = f.ValueType;
 			switch (ftype) {
 			case ValueType.Closure: {
 					var cl = f.AsClosure;
-					if (cl != null) {
-						var fixedNum = cl.Func.ParamNum; // 固定引数の数
-						if (cl.Func.HasVarArg) {
-							var varargNum = nargs - fixedNum; // 今回の可変の数
-							if (varargNum > 0) {
-								Array.Copy(stack_, func + 1, temp, 0, fixedNum);
-								copyAndFill(func + 1, varargNum, func + 1 + fixedNum, varargNum);
-								Array.Copy(temp, 0, stack_, func + 1 + varargNum, fixedNum);
-								clear(func + 1 + nargs, fixedNum - nargs);
-								base_ = func + 1 + varargNum;
-							} else {
-								clear(func + 1 + nargs, fixedNum - nargs);
-								base_ = func + 1;
+					var fixedNum = cl.Func.ParamNum; // 固定引数の数
+					if (cl.Func.HasVarArg) {
+						var varargNum = nargs - fixedNum; // 今回の可変の数
+						if (varargNum > 0) {
+							for (int i = 0; i < fixedNum; i++) {
+								temp[i] = stack_[func + 1 + i];
 							}
+							trace("call vararg copy", func + 1 + fixedNum, func + 1, varargNum);
+							copyAndFill(func + 1 + fixedNum, varargNum, func + 1, varargNum);
+							for (int i = 0; i < fixedNum; i++) {
+								stack_[func + 1 + varargNum + i] = temp[i];
+							}
+							clear(func + 1 + nargs, fixedNum - nargs);
+							base_ = func + 1 + varargNum;
 						} else {
 							clear(func + 1 + nargs, fixedNum - nargs);
 							base_ = func + 1;
 						}
-
-						//
-						top_ = result;
-						cl_ = cl;
-						func_ = cl.Func;
-						ci_ = new CallInfo() {
-							Func = func,
-							Result = result,
-							Base = base_,
-							Prev = ci_,
-							Wanted = wanted,
-							SavedPc = pc_,
-						};
-						pc_ = 0;
-						return;
+					} else {
+						clear(func + 1 + nargs, fixedNum - nargs);
+						base_ = func + 1;
 					}
+
+					//
+					top_ = result;
+					cl_ = cl;
+					func_ = cl.Func;
+					ci_.SavedPc = pc_;
+					var oldCi = ci_;
+
+					ci_ = allocCallInfo();
+					ci_.Func = func;
+					ci_.Result = result;
+					ci_.Base = base_;
+					ci_.Prev = oldCi;
+					ci_.Wanted = wanted;
+					ci_.SavedPc = 0;
+
+					pc_ = 0;
+					return false;
 				}
-				break;
 			case ValueType.LuaApi: {
 					var api = f.AsLuaApi;
-					if (api != null) {
-						var oldBase_ = base_;
-						base_ = func+1;
-						apiArgNum_ = nargs;
-						top_ = result;
-						try {
-							api(this);
-						} finally {
-							base_ = oldBase_;
-						}
-						if (wanted > 0) {
-							clear(top_, top_ - (result + wanted));
-						}
+					var oldBase_ = base_;
+					base_ = func+1;
+					apiArgNum_ = nargs;
+					top_ = result;
+					try {
+						api(this);
+					} finally {
+						base_ = oldBase_;
+					}
+					if (wanted > 0) {
+						trace("clear", top_, (result + wanted) - top_);
+						clear(top_, (result + wanted) - top_);
 					}
 				}
-				break;
+				return true;
+			case ValueType.Nil:
+				throw new LuaException("function is nil");
 			default:
 				throw new Exception("invalid function type " + f.GetType());
 			}
@@ -375,13 +410,19 @@ namespace TLua
 					num = top_ - result;
 				}
 				check(num >= 0);
-				copyAndFill(result, num, ci_.Result, ci_.Wanted);
+				var wanted = ci_.Wanted;
+				if (wanted < 0) wanted = num;
+				trace("doreturn", result, num);
+				copyAndFill(result, num, ci_.Result, wanted);
 				top_ = ci_.Result + num;
 
+				var prev = ci_.Prev;
+				releaseCallInfo(ci_);
+				ci_ = prev;
 				pc_ = ci_.SavedPc;
-				ci_ = ci_.Prev;
 				base_ = ci_.Base;
-				func_ = stack_[ci_.Func].AsClosure.Func;
+				cl_ = stack_[ci_.Func].AsClosure;
+				func_ = cl_.Func;
 			}
 		}
 
@@ -420,13 +461,17 @@ namespace TLua
 
 		void step(int count)
 		{
+			bool finishNormally = false; // catch だと IDEでデバッグしずらいため、finallyを利用している。
 			try {
 				int b = 0, c = 0, nargs = 0, wanted = 0;
 				LuaValue v;
 				StringBuilder sb = null;
 
 				while (count != 0) {
-					if (pc_ == -1) break;
+					if (pc_ == -1) {
+						finishNormally = true;
+						break;
+					}
 
 					var i = func_.Codes[pc_];
 					var opcode = Inst.OpCode(i);
@@ -449,7 +494,7 @@ namespace TLua
 						break;
 					case OpCode.LOADBOOL:
 						stack_[ra].AsBool = (Inst.B(i) != 0);
-						if( Inst.C(i) != 0 ) pc_++;
+						if (Inst.C(i) != 0) pc_++;
 						break;
 					case OpCode.LOADNIL:
 						b = Inst.B(i);
@@ -539,7 +584,7 @@ namespace TLua
 						v = rb(i);
 						if (v.ConvertToBool() == (Inst.C(i) != 0)) {
 							stack_[ra] = v;
-						}else{
+						} else {
 							pc_++;
 						}
 						break;
@@ -551,8 +596,31 @@ namespace TLua
 						} else {
 							nargs = b - 1;
 						}
-						
-						precall(false, ra, nargs, ra, wanted);
+
+						precall(ra, nargs, ra, wanted);
+						break;
+					case OpCode.TAILCALL: {
+							b = Inst.B(i);
+							if (b == 0) {
+								nargs = top_ - ra - 1;
+							} else {
+								nargs = b - 1;
+							}
+							var oldCi = ci_;
+							ci_ = ci_.Prev;
+							releaseCallInfo(oldCi);
+							top_ = oldCi.Result + nargs + 1;
+							copyAndFill(ra, nargs + 1, oldCi.Func, nargs + 1);
+
+							pc_ = ci_.SavedPc;
+
+							if (precall(oldCi.Func, nargs, oldCi.Result, oldCi.Wanted)) {
+								pc_ = ci_.SavedPc;
+								base_ = ci_.Base;
+								cl_ = stack_[ci_.Func].AsClosure;
+								func_ = cl_.Func;
+							}
+						}
 						break;
 					case OpCode.RETURN:
 						b = Inst.B(i);
@@ -575,7 +643,7 @@ namespace TLua
 						break;
 					case OpCode.TFORCALL:
 						c = Inst.C(i);
-						precall(false, ra, 2, ra + 3, c - 1);
+						precall(ra, 2, ra + 3, c - 1);
 						break;
 					case OpCode.TFORLOOP: {
 							var iter = r(a + 1);
@@ -587,14 +655,17 @@ namespace TLua
 						break;
 					case OpCode.SETLIST: {
 							var tbl = r(a).AsTable;
-							c = Inst.C(i);
-							var size = Inst.B(i) - 1;
-							if (size == -1) {
+							var start = Inst.C(i) - 1;
+							var size = Inst.B(i);
+							if (size == 0) {
 								size = top_ - ra - 1;
 							}
-							tbl.Resize(c + size);
-							for (int n = 0; n <= size; n++) {
-								tbl[c - 1 + n] = r(a+1+n);
+							if (start < 0) {
+								throw new Exception("not implemented");
+							}
+							tbl.Resize(size);
+							for (int n = 0; n < size; n++) {
+								tbl[start + n] = r(a + 1 + n);
 							}
 						}
 						break;
@@ -612,19 +683,24 @@ namespace TLua
 							} else {
 								toSize = b - 1;
 							}
-							copyAndFill(ra, fromSize, ci_.Func + 1, toSize);
+							copyAndFill(ci_.Func + 1, fromSize, ra, toSize);
 							top_ = ra + toSize;
 						}
 						break;
 					default:
 						throw new Exception("invalid opcode " + opcode);
 					}
-					count--;
+					if( count >= 0 ) count--;
 				}
-			} catch( Exception ex) {
-				Console.WriteLine("{0}:{1}: {2}", func_.Filename, func_.DebugInfos[pc_], ex.Message);
-				Console.WriteLine(dump());
-				throw;
+			} finally {
+				try {
+					if (!finishNormally) {
+						//Console.WriteLine("{0}:{1}: {2}", func_.Filename, func_.DebugInfos[pc_], ex.Message);
+						Console.WriteLine(dump());
+					}
+				} catch (Exception) {
+					// DO NOTHING
+				}
 			}
 		}
 

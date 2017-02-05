@@ -14,7 +14,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug</OutputPath>
-    <DefineConstants>DEBUG;</DefineConstants>
+    <DefineConstants>DEBUG2;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ExternalConsole>true</ExternalConsole>
@@ -44,6 +44,7 @@
     <Compile Include="LuaLib\T.cs" />
     <Compile Include="LuaLib\Math.cs" />
     <Compile Include="String.cs" />
+    <Compile Include="LuaLib\StdTable.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="LuaLib\" />

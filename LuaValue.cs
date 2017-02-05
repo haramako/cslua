@@ -168,6 +168,42 @@ namespace TLua
 			}
 		}
 
+		public bool IsBool {
+			get {
+				return ValueType == ValueType.Bool;
+			}
+		}
+
+		public bool IsInteger {
+			get {
+				return ValueType == ValueType.Integer;
+			}
+		}
+
+		public bool IsFloat {
+			get {
+				return ValueType == ValueType.Float;
+			}
+		}
+
+		public bool IsNumber {
+			get {
+				return ValueType == ValueType.Integer || ValueType == ValueType.Float;
+			}
+		}
+
+		public bool IsString {
+			get {
+				return ValueType == ValueType.String;
+			}
+		}
+
+		public bool IsTable {
+			get {
+				return ValueType == ValueType.Table;
+			}
+		}
+
 		// TODO: 48bit以上の扱い
 		public int AsInt {
 			get {
@@ -314,7 +350,7 @@ namespace TLua
 				throw new Exception("invalid opcode " + opcode);
 			}
 
-			if (intOperator) {
+			if (!intOperator) {
 				var fa = a.ConvertToFloat();
 				var fb = b.ConvertToFloat();
 				double r = 0;
@@ -479,7 +515,7 @@ namespace TLua
 			case ValueType.Bool:
 				return AsBool ? "true" : "false";
 			case ValueType.Table:
-				return "table(" + AsTable.Size + ")";
+				return "table(" + AsTable.ArraySize + "," + AsTable.GetRawMap().Count + ")";
 			case ValueType.UserData:
 				return "userdata(" + obj_.GetHashCode() + ")";
 			case ValueType.LuaApi:
@@ -507,13 +543,33 @@ namespace TLua
 				case ValueType.String:
 					return (string)this.obj_ == (string)x.obj_;
 				case ValueType.Table:
+				case ValueType.LuaApi:
 				case ValueType.UserData:
 					return this.obj_ == x.obj_;
 				default:
 					return true;
 				}
 			} else {
-				return false;
+				if (IsNumber) {
+					switch (this.ValueType) {
+					case ValueType.Integer:
+						if (x.IsFloat) {
+							return x.AsFloat == ConvertToFloat();
+						} else {
+							return false;
+						}
+					case ValueType.Float:
+						if (x.IsInteger) {
+							return x.ConvertToFloat() == AsFloat;
+						} else {
+							return false;
+						}
+					default:
+						return false;
+					}
+				} else {
+					return false;
+				}
 			}
 		}
 
