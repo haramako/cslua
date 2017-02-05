@@ -26,9 +26,10 @@ namespace TLua
 		public Function[] Protos;
 		public uint[] DebugInfos;
 
-		// テスト用
+		// Root用のダミー関数
 		public Function()
 		{
+			Upvals = new UpvalTag[0];
 		}
 
 		public Function(ZIO z, string filename)
@@ -60,6 +61,9 @@ namespace TLua
 					break;
 				case LoadType.NumFloat:
 					Consts[i].AsFloat = z.ReadDouble();
+					break;
+				case LoadType.NumInt:
+					Consts[i].AsInt = (int)z.ReadInt64();
 					break;
 				case LoadType.ShortString:
 				case LoadType.LongString:
@@ -128,15 +132,15 @@ namespace TLua
 		{
 			var z = new ZIO(s);
 
-			var x = z.ReadBytes(6);
+			z.ReadBytes(6);
 
-			var x2 = z.ReadBytes(6);
+			z.ReadBytes(6);
 
-			var x3 = z.ReadBytes(5);
+			z.ReadBytes(5);
 
-			var x4 = z.ReadInt64();
-			var x5 = z.ReadNumber();
-			var x6 = z.ReadByte();
+			z.ReadInt64();
+			z.ReadNumber();
+			z.ReadByte();
 
 			Main = new Function(z, filename);
 		}

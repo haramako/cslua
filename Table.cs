@@ -25,6 +25,16 @@ namespace TLua
 			}
 		}
 
+		public List<LuaValue> GetRawArray()
+		{
+			return array_;
+		}
+
+		public Dictionary<string,LuaValue> GetRawMap()
+		{
+			return map_;
+		}
+
 		public LuaValue this[int idx]{
 			get {
 				return array_[idx];
@@ -45,12 +55,12 @@ namespace TLua
 
 		// luaのインデックス表記を実際のarray_のインデックスに直す
 		// 範囲外の場合は-1を返す
-		int luaIdxToIdx(int idx)
+		int luaIdxToRawIdx(int idx)
 		{
 			if (idx < 0) {
 				idx = array_.Count + idx;
 			}
-			return idx;
+			return idx - 1;
 		}
 
 		public int Size {
@@ -82,7 +92,7 @@ namespace TLua
 		// - サイズ外の場合は、nilを返す
 		public LuaValue GetByLuaIdx(int luaIdx)
 		{
-			var idx = luaIdxToIdx(luaIdx);
+			var idx = luaIdxToRawIdx(luaIdx);
 			if (idx >= 0 && idx < array_.Capacity) {
 				return array_[idx];
 			} else {
@@ -93,7 +103,7 @@ namespace TLua
 		// Lua流のインデックスで値を設定する
 		public void SetByLuaIdx(int luaIdx, LuaValue val)
 		{
-			var idx = luaIdxToIdx(luaIdx);
+			var idx = luaIdxToRawIdx(luaIdx);
 			if (idx >= 0) {
 				if (idx >= array_.Count) {
 					Resize(idx+1);
@@ -117,9 +127,9 @@ namespace TLua
 		{
 			switch(idx.ValueType){
 			case ValueType.Integer: {
-					var luaIdx = luaIdxToIdx(idx.AsInt);
-					if (luaIdx > 0) {
-						return array_[luaIdx];
+					var rawIdx = luaIdxToRawIdx(idx.AsInt);
+					if (rawIdx >= 0 && rawIdx < array_.Count) {
+						return array_[rawIdx];
 					} else {
 						return LuaValue.Nil;
 					}
@@ -141,7 +151,7 @@ namespace TLua
 		{
 			switch (idx.ValueType) {
 			case ValueType.Integer: 
-				var rawIdx = luaIdxToIdx(idx.AsInt);
+				var rawIdx = luaIdxToRawIdx(idx.AsInt);
 				if (rawIdx > 0) {
 					if (rawIdx >= array_.Count) {
 						Resize(rawIdx + 1);
@@ -152,7 +162,7 @@ namespace TLua
 				}
 				break;
 			case ValueType.String:
-				map_[val.AsString] = val;
+				map_[idx.AsString] = val;
 				break;
 			default:
 				throw new LuaException("invalid indexing");

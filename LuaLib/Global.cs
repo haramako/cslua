@@ -1,5 +1,5 @@
 ﻿using System;
-namespace TLua
+namespace TLua.LuaLib
 {
 	public class Global
 	{
@@ -12,9 +12,25 @@ namespace TLua
 			System.Console.WriteLine("");
 		}
 
+		public static void assert(LuaState L)
+		{
+			for (int i = 0; i < L.GetArgNum(); i++) {
+				if (!L.GetArg(i).ConvertToBool()) {
+					throw new LuaException("assert failed");
+				}
+			}
+		}
+
+		public static void trace(LuaState L)
+		{
+			L.EnableTrace = true;
+		}
+
 		public static void Bind(LuaState L)
 		{
 			L.Env["print"] = new LuaValue(print);
+			L.Env["assert"] = new LuaValue(assert);
+			L.Env["trace"] = new LuaValue(trace);
 		}
 	}
 }

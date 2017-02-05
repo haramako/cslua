@@ -6,7 +6,17 @@ namespace TLua
 	{
 		public static void Main(string[] args)
 		{
-			Console.WriteLine("Hello World!");
+			bool trace = false;
+			foreach (var arg in args) {
+				if (arg == "-t") {
+					trace = true;
+					continue;
+				}
+				var lua = new LuaState();
+				lua.LoadFile(arg);
+				lua.EnableTrace = trace;
+				lua.Run();
+			}
 		}
 	}
 }

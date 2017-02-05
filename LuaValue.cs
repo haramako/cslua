@@ -287,6 +287,181 @@ namespace TLua
 		}
 
 		//====================================================
+		// Lua operators
+		//====================================================
+
+		public static LuaValue BinOp(OpCode opcode, LuaValue a, LuaValue b)
+		{
+			bool intOperator; // 0=数値演算, 1=Int演算, 2=Bool演算
+			switch (opcode) {
+			case OpCode.ADD:
+			case OpCode.SUB:
+			case OpCode.MUL:
+			case OpCode.MOD:
+			case OpCode.POW:
+			case OpCode.DIV:
+				intOperator = false;
+				break;
+			case OpCode.IDIV:
+			case OpCode.BAND:
+			case OpCode.BOR:
+			case OpCode.BXOR:
+			case OpCode.SHL:
+			case OpCode.SHR:
+				intOperator = true;
+				break;
+			default:
+				throw new Exception("invalid opcode " + opcode);
+			}
+
+			if (intOperator) {
+				var fa = a.ConvertToFloat();
+				var fb = b.ConvertToFloat();
+				double r = 0;
+				switch (opcode) {
+				case OpCode.ADD:
+					r = fa + fb;
+					break;
+				case OpCode.SUB:
+					r = fa - fb;
+					break;
+				case OpCode.MUL:
+					r = fa * fb;
+					break;
+				case OpCode.MOD:
+					r = fa % fb;
+					break;
+				case OpCode.POW:
+					r = Math.Pow(fa, fb);
+					break;
+				case OpCode.DIV:
+					r = fa / fb;
+					break;
+				}
+				return new LuaValue(r);
+			} else {
+				var ia = a.ConvertToInt();
+				var ib = b.ConvertToInt();
+				int r = 0;
+				switch (opcode) {
+				case OpCode.IDIV:
+					r = ia % ib;
+					break;
+				case OpCode.BAND:
+					r = ia & ib;
+					break;
+				case OpCode.BOR:
+					r = ia | ib;
+					break;
+				case OpCode.BXOR:
+					r = ia ^ ib;
+					break;
+				case OpCode.SHL:
+					r = ia << ib;
+					break;
+				case OpCode.SHR:
+					r = ia >> ib;
+					break;
+				}
+				return new LuaValue(r);
+			}
+		}
+
+		public static LuaValue UnaryOp(OpCode opcode, LuaValue a)
+		{
+			switch (opcode) {
+			case OpCode.UNM:
+				if (a.ValueType == ValueType.Integer) {
+					return new LuaValue(-a.ConvertToInt());
+				} else {
+					return new LuaValue(-a.ConvertToFloat());
+				}
+			case OpCode.BNOT:
+				return new LuaValue(~a.ConvertToInt());
+			case OpCode.NOT:
+				return new LuaValue(!a.ConvertToBool());
+			default:
+				throw new Exception("invalid opcode " + opcode);
+			}
+		}
+
+		public static bool CompOp(OpCode opcode, LuaValue a, LuaValue b)
+		{
+			switch (opcode) {
+			case OpCode.EQ:
+				return a == b;
+			case OpCode.LT:
+				if (a.ValueType == ValueType.Integer && b.ValueType == ValueType.Integer) {
+					return a.ConvertToInt() < b.ConvertToInt();
+				} else {
+					return a.ConvertToFloat() < b.ConvertToFloat();
+				}
+			case OpCode.LE:
+				if (a.ValueType == ValueType.Integer && b.ValueType == ValueType.Integer) {
+					return a.ConvertToInt() <= b.ConvertToInt();
+				} else {
+					return a.ConvertToFloat() <= b.ConvertToFloat();
+				}
+			default:
+				throw new Exception("invalid opcode " + opcode);
+			}
+		}
+		public static LuaValue Add(LuaValue a, LuaValue b)
+		{
+			return LuaValue.Nil;
+		}
+
+		public int Len()
+		{
+			switch (ValueType) {
+			case ValueType.String:
+				return AsString.Length;
+			case ValueType.Table:
+				return AsTable.ArraySize;
+			default:
+				throw new LuaException("attempt to get length of " + ToString());
+			}
+		}
+
+		public int ConvertToInt()
+		{
+			switch (ValueType) {
+			case ValueType.Integer:
+				return AsInt;
+			case ValueType.Float:
+				return (int)Math.Round(AsFloat);
+			default:
+				throw new LuaException(ToString() + " cannot convert to int");
+			}
+		}
+
+		public double ConvertToFloat()
+		{
+			switch (ValueType) {
+			case ValueType.Integer:
+				return AsInt;
+			case ValueType.Float:
+				return AsFloat;
+			default:
+				throw new LuaException(ToString() + " cannot convert to int");
+			}
+		}
+
+		/// <summary>
+		/// boolに変換する
+		/// </summary>
+		/// <returns><c>true</c>, if to bool was converted, <c>false</c> otherwise.</returns>
+		public bool ConvertToBool()
+		{
+			switch (ValueType) {
+			case ValueType.Bool:
+				return AsBool;
+			default:
+				return !IsNil;
+			}
+		}
+
+		//====================================================
 		// Operators
 		//====================================================
 

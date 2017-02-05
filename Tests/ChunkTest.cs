@@ -16,9 +16,10 @@ namespace TLua
 
 			Console.WriteLine(chunk.Main.Dump());
 */
-			var lua = new LuaState();
-			lua.LoadFile("/Users/makoto/mlua/t1.lua");
-			lua.Run();
+			//var lua = new LuaState();
+			//lua.LoadFile("/Users/makoto/mlua/t1.lua");
+			//lua.LoadFile("/Users/makoto/mlua/luatest/code.lua");
+			//lua.Run();
 		}
 	}
 }

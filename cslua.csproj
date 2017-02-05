@@ -41,6 +41,9 @@
     <Compile Include="Function.cs" />
     <Compile Include="Consts.cs" />
     <Compile Include="LuaLib\Global.cs" />
+    <Compile Include="LuaLib\T.cs" />
+    <Compile Include="LuaLib\Math.cs" />
+    <Compile Include="String.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="LuaLib\" />

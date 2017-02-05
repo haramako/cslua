@@ -2,6 +2,7 @@
 using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Text;
 
 namespace TLua
 {
@@ -49,10 +50,13 @@ namespace TLua
 		int base_;
 		int apiArgNum_; // APIでのみ使用される,引数の数
 		CallInfo ci_;
+		Closure cl_;
 		Function func_;
 		List<Upval> openUpvals_;
 
 		Table env_;
+
+		public bool EnableTrace;
 
 		public Table Env {
 			get {
@@ -68,7 +72,10 @@ namespace TLua
 			openUpvals_ = new List<Upval>();
 			env_ = new Table();
 
-			Global.Bind(this);
+			LuaLib.Global.Bind(this);
+			LuaLib.T.Bind(this);
+			LuaLib.StdMath.Bind(this);
+			LuaLib.StdString.Bind(this);
 		}
 
 		public void LoadFile(string filename)
@@ -80,15 +87,13 @@ namespace TLua
 			}
 			var s = System.IO.File.OpenRead("/tmp/luac.out");
 			var chunk = new Chunk(s, filename);
-			Console.WriteLine(chunk.Main.Dump());
 
 			var rootCi = new CallInfo() { 
 				Func = 0, 
 				Result = 0, 
 				Base = 0, 
-				Prev = null, 
+				Prev = null,
 				Wanted = 1, 
-				SavedPc = -1,
 			};
 			var cl = new Closure(chunk.Main);
 			cl.Upvals[0] = new Upval() { Val = new LuaValue(env_), IsOpen = false };
@@ -98,11 +103,13 @@ namespace TLua
 				Base = 3,
 				Prev = rootCi,
 				Wanted = 0,
+				SavedPc = -1,
 			};
 
-			stack_[0] = LuaValue.Nil;
+			stack_[0] = new LuaValue(new Closure(new Function()));
 			stack_[1] = new LuaValue(env_);
 			stack_[2] = new LuaValue(cl);
+			cl_ = cl;
 			func_ = cl.Func;
 			pc_ = 0;
 			base_ = 3;
@@ -117,12 +124,14 @@ namespace TLua
 		[Conditional("DEBUG")]
 		void trace(params object[] args)
 		{
-			Console.Write("TRACE: ");
-			foreach (var arg in args) {
-				Console.Write(arg);
-				Console.Write(", ");
+			if (EnableTrace) {
+				Console.Write("TRACE: ");
+				foreach (var arg in args) {
+					Console.Write(arg);
+					Console.Write(", ");
+				}
+				Console.WriteLine("");
 			}
-			Console.WriteLine("");
 		}
 
 		[Conditional("DEBUG")]
@@ -131,6 +140,26 @@ namespace TLua
 			if (!b) {
 				throw new Exception("check failed!");
 			}
+		}
+
+		string dump()
+		{
+			var sb = new StringBuilder();
+			sb.AppendLine("********DUMP********");
+			sb.AppendFormat("PC: {0}\n", pc_);
+			sb.AppendLine("********STACK********");
+			for (int i = 0; i < base_ + func_.MaxStackSize; i++) {
+				string mark = "";
+				if (i == base_) {
+					mark = "base->";
+				} else if (i == ci_.Func) {
+					mark = "func->";
+				} else if (i == top_) {
+					mark = " top->";
+				}
+				sb.AppendFormat("{0,-6} {1,4} {2}\n", mark, i, stack_[i].ToString());
+			}
+			return sb.ToString();
 		}
 
 		//===========================================
@@ -256,7 +285,7 @@ namespace TLua
 			}
 		}
 
-		void setUpval(int upvalIdx, ref LuaValue val)
+		void setUpval(int upvalIdx, LuaValue val)
 		{
 			var cl = stack_[ci_.Func].AsClosure;
 			trace("set upval", upvalIdx, cl.Upvals[upvalIdx]);
@@ -299,6 +328,7 @@ namespace TLua
 
 						//
 						top_ = result;
+						cl_ = cl;
 						func_ = cl.Func;
 						ci_ = new CallInfo() {
 							Func = func,
@@ -347,8 +377,11 @@ namespace TLua
 				check(num >= 0);
 				copyAndFill(result, num, ci_.Result, ci_.Wanted);
 				top_ = ci_.Result + num;
-				ci_ = ci_.Prev;
+
 				pc_ = ci_.SavedPc;
+				ci_ = ci_.Prev;
+				base_ = ci_.Base;
+				func_ = stack_[ci_.Func].AsClosure.Func;
 			}
 		}
 
@@ -370,9 +403,9 @@ namespace TLua
 			}
 		}
 
-		public void PushResult(int idx, ref LuaValue val)
+		public void PushResult(LuaValue val)
 		{
-			stack_[top_ + idx] = val;
+			stack_[top_] = val;
 			top_++;
 		}
 
@@ -390,6 +423,7 @@ namespace TLua
 			try {
 				int b = 0, c = 0, nargs = 0, wanted = 0;
 				LuaValue v;
+				StringBuilder sb = null;
 
 				while (count != 0) {
 					if (pc_ == -1) break;
@@ -398,7 +432,9 @@ namespace TLua
 					var opcode = Inst.OpCode(i);
 					var a = Inst.A(i);
 					var ra = base_ + a;
-					trace("c", pc_, Inst.Inspect(i));
+					if (EnableTrace) {
+						Console.WriteLine(string.Format("* {0,3}[{1,3}] {2}", pc_, func_.DebugInfos[pc_], Inst.Inspect(i)));
+					}
 					pc_++;
 
 					switch (opcode) {
@@ -408,9 +444,104 @@ namespace TLua
 					case OpCode.LOADK:
 						stack_[ra] = kst(Inst.Bx(i));
 						break;
+					case OpCode.LOADKX:
+						check(false);
+						break;
+					case OpCode.LOADBOOL:
+						stack_[ra].AsBool = (Inst.B(i) != 0);
+						if( Inst.C(i) != 0 ) pc_++;
+						break;
+					case OpCode.LOADNIL:
+						b = Inst.B(i);
+						for (int n = 0; n <= b; n++) {
+							stack_[ra + n].Clear();
+						}
+						break;
+					case OpCode.GETUPVAL:
+						stack_[ra] = getUpval(Inst.B(i));
+						break;
 					case OpCode.GETTABUP:
 						v = getUpval(Inst.B(i));
 						stack_[ra] = v.AsTable[rkc(i)];
+						break;
+					case OpCode.GETTABLE:
+						stack_[ra] = rkb(i).AsTable[rkc(i)];
+						break;
+					case OpCode.SETTABUP:
+						v = getUpval(Inst.A(i));
+						v.AsTable[rkb(i)] = rkc(i);
+						break;
+					case OpCode.SETUPVAL:
+						setUpval(Inst.B(i), r(a));
+						break;
+					case OpCode.SETTABLE:
+						r(a).AsTable[rkb(i)] = rkc(i);
+						break;
+					case OpCode.NEWTABLE:
+						stack_[ra].AsTable = new Table();
+						break;
+					case OpCode.SELF: {
+							var tbl = rb(i).AsTable;
+							stack_[ra + 1].AsTable = tbl;
+							stack_[ra] = tbl[rkc(i)];
+						}
+						break;
+					case OpCode.ADD:
+					case OpCode.SUB:
+					case OpCode.MUL:
+					case OpCode.MOD:
+					case OpCode.POW:
+					case OpCode.DIV:
+					case OpCode.IDIV:
+					case OpCode.BAND:
+					case OpCode.BOR:
+					case OpCode.BXOR:
+					case OpCode.SHL:
+					case OpCode.SHR:
+						stack_[ra] = LuaValue.BinOp(opcode, rkb(i), rkc(i));
+						break;
+					case OpCode.UNM:
+					case OpCode.BNOT:
+					case OpCode.NOT:
+						stack_[ra] = LuaValue.UnaryOp(opcode, rkb(i));
+						break;
+					case OpCode.LEN:
+						stack_[ra].AsInt = rb(i).Len();
+						break;
+					case OpCode.CONCAT:
+						b = Inst.B(i);
+						c = Inst.C(i);
+						if (sb == null) sb = new StringBuilder();
+						for (int n = b; n <= c; n++) {
+							sb.Append(stack_[base_ + n]);
+						}
+						stack_[ra].AsString = sb.ToString();
+						sb.Clear();
+						break;
+					case OpCode.JMP:
+						pc_ += Inst.sBx(i);
+						break;
+					case OpCode.EQ:
+					case OpCode.LT:
+					case OpCode.LE: {
+							var cond = LuaValue.CompOp(opcode, rkb(i), rkc(i));
+							if (cond != (Inst.A(i) != 0)) {
+								pc_++;
+							}
+						}
+						break;
+					case OpCode.TEST:
+						if (r(a).ConvertToBool() != (Inst.C(i) != 0)) {
+							pc_++;
+						}
+						break;
+					case OpCode.TESTSET:
+						v = rb(i);
+						if (v.ConvertToBool() == (Inst.C(i) != 0)) {
+							stack_[ra] = v;
+						}else{
+							pc_++;
+						}
 						break;
 					case OpCode.CALL:
 						b = Inst.B(i);
@@ -420,12 +551,70 @@ namespace TLua
 						} else {
 							nargs = b - 1;
 						}
-						ci_.SavedPc = pc_;
+						
 						precall(false, ra, nargs, ra, wanted);
 						break;
 					case OpCode.RETURN:
 						b = Inst.B(i);
 						doReturn(ra, b - 1);
+						break;
+					case OpCode.FORLOOP: {
+							int stp = r(a + 2).AsInt;
+							int cnt = r(a).AsInt + stp;
+							int end = r(a + 1).AsInt;
+							stack_[ra].AsInt = cnt;
+							if ((stp > 0 && cnt <= end) || (stp < 0 && cnt >= end)) {
+								pc_ += Inst.sBx(i);
+								stack_[ra + 3].AsInt = cnt;
+							}
+						}
+						break;
+					case OpCode.FORPREP:
+						stack_[ra].AsInt = r(a).AsInt - r(a + 2).AsInt;
+						pc_ += Inst.sBx(i);
+						break;
+					case OpCode.TFORCALL:
+						c = Inst.C(i);
+						precall(false, ra, 2, ra + 3, c - 1);
+						break;
+					case OpCode.TFORLOOP: {
+							var iter = r(a + 1);
+							if (!iter.IsNil) {
+								stack_[ra] = iter;
+								pc_ += Inst.sBx(i);
+							}
+						}
+						break;
+					case OpCode.SETLIST: {
+							var tbl = r(a).AsTable;
+							c = Inst.C(i);
+							var size = Inst.B(i) - 1;
+							if (size == -1) {
+								size = top_ - ra - 1;
+							}
+							tbl.Resize(c + size);
+							for (int n = 0; n < size; n++) {
+								tbl[c + n] = r(a+1+n);
+							}
+						}
+						break;
+					case OpCode.CLOSURE: {
+							var proto = func_.Protos[Inst.Bx(i)];
+							stack_[ra].AsClosure = newClosure(proto, base_, cl_);
+						}
+						break;
+					case OpCode.VARARG: {
+							b = Inst.B(i);
+							var fromSize = base_ - ci_.Func - 1;
+							int toSize;
+							if (b == 0) {
+								toSize = fromSize;
+							} else {
+								toSize = b - 1;
+							}
+							copyAndFill(ra, fromSize, ci_.Func + 1, toSize);
+							top_ = ra + toSize;
+						}
 						break;
 					default:
 						throw new Exception("invalid opcode " + opcode);
@@ -433,6 +622,7 @@ namespace TLua
 					count--;
 				}
 			} catch( Exception ) {
+				Console.WriteLine(dump());
 				throw;
 			}
 		}
