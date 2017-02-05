@@ -593,8 +593,8 @@ namespace TLua
 								size = top_ - ra - 1;
 							}
 							tbl.Resize(c + size);
-							for (int n = 0; n < size; n++) {
-								tbl[c + n] = r(a+1+n);
+							for (int n = 0; n <= size; n++) {
+								tbl[c - 1 + n] = r(a+1+n);
 							}
 						}
 						break;
@@ -621,7 +621,8 @@ namespace TLua
 					}
 					count--;
 				}
-			} catch( Exception ) {
+			} catch( Exception ex) {
+				Console.WriteLine("{0}:{1}: {2}", func_.Filename, func_.DebugInfos[pc_], ex.Message);
 				Console.WriteLine(dump());
 				throw;
 			}
