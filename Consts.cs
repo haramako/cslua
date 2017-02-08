@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
+
 namespace TLua
 {
 	public enum LoadType
@@ -20,21 +22,25 @@ namespace TLua
 
 	public class Inst
 	{
-		public static OpCode OpCode(uint code)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static OpCode OpCode(uint code)
 		{
 			return (OpCode)(code & 0x3f);
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int A(uint code)
 		{
 			return ((int)code >> 6) & 0xff;
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int Ax(uint code)
 		{
 			return -1 - ((int)code >> 6);
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int B(uint code)
 		{
 			var r = ((int)code >> 23) & 0x1ff;
@@ -45,16 +51,19 @@ namespace TLua
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int Bx(uint code)
 		{
 			return (int)(code >> 14);
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int sBx(uint code)
 		{
 			return (int)(code >> 14) - 0x1ffff;
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int C(uint code)
 		{
 			var r = ((int)code >> 14) & 0x1ff;
