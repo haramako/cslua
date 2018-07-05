@@ -83,7 +83,7 @@ namespace TLua
 
 		public void LoadFile(string filename)
 		{
-			var p = Process.Start("luac53", "-o luac.out "+ filename );
+			var p = Process.Start("luac53.exe", "-o luac.out "+ filename );
 			p.WaitForExit();
 			if (p.ExitCode != 0) {
 				throw new Exception("exit code not 0");

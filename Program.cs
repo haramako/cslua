@@ -34,6 +34,7 @@ namespace TLua
 				lua.Run();
 			}
             Console.WriteLine("END");
+            Console.ReadKey();
 		}
 	}
 }
