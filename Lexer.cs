@@ -767,24 +767,26 @@ namespace TLua
         }
 
 
-        void luaX_next(LexState* ls)
+        public void ReadNext()
         {
-            ls->lastline = ls->linenumber;
-            if (ls->lookahead.token != TK_EOS)
+            lastline = linenumber;
+            if (lookahead.token.kind() != TokenKind.Eos)
             {  /* is there a look-ahead token? */
-                ls->t = ls->lookahead;  /* use this one */
-                ls->lookahead.token = TK_EOS;  /* and discharge it */
+                t = lookahead;  /* use this one */
+                lookahead.token = TokenKind.Eos.tc();  /* and discharge it */
             }
             else
-                ls->t.token = llex(ls, &ls->t.seminfo);  /* read next token */
+            {
+                t.token = llex(out t.seminfo);  /* read next token */
+            }
         }
 
 
-        int luaX_lookahead(LexState* ls)
+        TokenChar ReadLookahead()
         {
-            lua_assert(ls->lookahead.token == TK_EOS);
-            ls->lookahead.token = llex(ls, &ls->lookahead.seminfo);
-            return ls->lookahead.token;
+            assert(lookahead.token.kind() == TokenKind.Eos);
+            lookahead.token = llex(out lookahead.seminfo);
+            return lookahead.token;
         }
 
     }
