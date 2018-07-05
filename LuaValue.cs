@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace TLua
 {
@@ -50,19 +51,22 @@ namespace TLua
 
 		public static readonly LuaValue Nil = new LuaValue() { val_ = NilMark, obj_ = null };
 
-		public LuaValue(LuaValue v)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public LuaValue(LuaValue v)
 		{
 			val_ = v.val_;
 			obj_ = v.obj_;
 		}
 
-		public LuaValue(int v)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public LuaValue(int v)
 		{
 			val_ = 0;
 			obj_ = null;
 			AsInt = v;
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public LuaValue(double v)
 		{
 			val_ = 0;
@@ -70,6 +74,7 @@ namespace TLua
 			AsFloat = v;
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public LuaValue(string v)
 		{
 			if (v == null) {
@@ -81,12 +86,14 @@ namespace TLua
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public LuaValue(bool v)
 		{
 			val_ = (v ? (ulong)1 : (ulong)0) | BoolMark;
 			obj_ = null;
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public LuaValue(Table v)
 		{
 			if (v == null) {
@@ -98,6 +105,7 @@ namespace TLua
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public LuaValue(Closure v)
 		{
 			if (v == null) {
@@ -109,6 +117,7 @@ namespace TLua
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public LuaValue(LuaApi v)
 		{
 			if (v == null) {
@@ -120,6 +129,7 @@ namespace TLua
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public LuaValue(object v)
 		{
 			val_ = 0;
@@ -142,7 +152,9 @@ namespace TLua
 		}
 
 		public ValueType ValueType {
-			get {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				if (val_ < NonFloatBits) {
 					return ValueType.Float;
 				} else {
@@ -157,56 +169,73 @@ namespace TLua
 			}
 		}
 
-		public void Clear() {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Clear() {
 			val_ = NilMark;
 			obj_ = null;
 		}
 
-		public bool IsNil {
-			get {
+        public bool IsNil {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				return (ValueType == ValueType.Nil);
 			}
 		}
 
-		public bool IsBool {
-			get {
+        public bool IsBool {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				return ValueType == ValueType.Bool;
 			}
 		}
 
-		public bool IsInteger {
-			get {
+        public bool IsInteger {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				return ValueType == ValueType.Integer;
 			}
 		}
 
-		public bool IsFloat {
-			get {
+        public bool IsFloat {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				return ValueType == ValueType.Float;
 			}
 		}
 
-		public bool IsNumber {
-			get {
+        public bool IsNumber {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				return ValueType == ValueType.Integer || ValueType == ValueType.Float;
 			}
 		}
 
-		public bool IsString {
-			get {
+        public bool IsString {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				return ValueType == ValueType.String;
 			}
 		}
 
-		public bool IsTable {
-			get {
+        public bool IsTable {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				return ValueType == ValueType.Table;
 			}
 		}
 
 		// TODO: 48bit以上の扱い
 		public int AsInt {
-			get {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				checkType(ValueType.Integer);
 				ulong result = val_ & ValueMask;
 				if ((result & SignMask) != 0) {
@@ -215,17 +244,23 @@ namespace TLua
 					return (int)result;
 				}
 			}
-			set {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set
+            {
 				val_ = ((ulong)value & ValueMask) | IntegerMark;
 			}
 		}
 
 		public double AsFloat {
-			get {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				checkType(ValueType.Float);
 				return BitConverter.Int64BitsToDouble((long)val_);
 			}
-			set {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set
+            {
 				if (double.IsNaN(value)) {
 					val_ = NanBits;
 				} else {
@@ -235,33 +270,45 @@ namespace TLua
 		}
 
 		public bool AsBool {
-			get {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				checkType(ValueType.Bool);
 				ulong result = val_ & ValueMask;
 				return result != 0;
 			}
-			set {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set
+            {
 				val_ = (value ? (ulong)1 : (ulong)0) | BoolMark;
 			}
 		}
 
 		public string AsString {
-			get {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				checkType(ValueType.String);
 				return (string)obj_;
 			}
-			set {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set
+            {
 				val_ = StringMark;
 				obj_ = value;
 			}
 		}
 
 		public Table AsTable {
-			get {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				checkType(ValueType.Table);
 				return (Table)obj_;
 			}
-			set {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set
+            {
 				val_ = TableMark;
 				obj_ = value;
 			}
@@ -307,11 +354,15 @@ namespace TLua
 		}
 
 		public LuaApi AsLuaApi {
-			get {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
 				checkType(ValueType.LuaApi);
 				return (LuaApi)obj_;
 			}
-			set {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set
+            {
 				if (value == null) {
 					val_ = NilMark;
 					obj_ = null;
@@ -459,6 +510,7 @@ namespace TLua
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public int ConvertToInt()
 		{
 			switch (ValueType) {
@@ -471,6 +523,7 @@ namespace TLua
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public double ConvertToFloat()
 		{
 			switch (ValueType) {
@@ -487,6 +540,7 @@ namespace TLua
 		/// boolに変換する
 		/// </summary>
 		/// <returns><c>true</c>, if to bool was converted, <c>false</c> otherwise.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public bool ConvertToBool()
 		{
 			switch (ValueType) {
@@ -536,6 +590,7 @@ namespace TLua
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public bool Equals(LuaValue x)
 		{
 			if (x.val_ == val_) {
@@ -578,11 +633,13 @@ namespace TLua
 			return ((int)val_) ^ (obj_.GetHashCode());
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static bool operator ==(LuaValue a, LuaValue b)
 		{
 			return a.Equals(b);
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static bool operator !=(LuaValue a, LuaValue b)
 		{
 			return !a.Equals(b);

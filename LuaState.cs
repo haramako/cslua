@@ -3,6 +3,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Text;
+using System.Runtime.CompilerServices;
 
 namespace TLua
 {
@@ -82,12 +83,12 @@ namespace TLua
 
 		public void LoadFile(string filename)
 		{
-			var p = Process.Start("luac5.3", "-o /tmp/luac.out "+ filename );
+			var p = Process.Start("luac53", "-o luac.out "+ filename );
 			p.WaitForExit();
 			if (p.ExitCode != 0) {
 				throw new Exception("exit code not 0");
 			}
-			var s = System.IO.File.OpenRead("/tmp/luac.out");
+			var s = System.IO.File.OpenRead("luac.out");
 			var chunk = new Chunk(s, filename);
 
 			var rootCi = new CallInfo() { 
@@ -206,6 +207,7 @@ namespace TLua
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		void clear(int idx, int len)
 		{
 			for (int n = 0; n < len; n++) {
@@ -213,12 +215,14 @@ namespace TLua
 			}
 		}
 
-		LuaValue r(int idx)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        LuaValue r(int idx)
 		{
 			return stack_[base_ + idx];
 		}
 
-		LuaValue rk(int idx)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        LuaValue rk(int idx)
 		{
 			if (idx >= 0) {
 				return stack_[base_ + idx];
@@ -227,27 +231,32 @@ namespace TLua
 			}
 		}
 
-		LuaValue kst(int idx)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        LuaValue kst(int idx)
 		{
 			return func_.Consts[idx];
 		}
 
-		LuaValue rb(uint code)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        LuaValue rb(uint code)
 		{
 			return r(Inst.B(code));
 		}
 
-		LuaValue rc(uint code)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        LuaValue rc(uint code)
 		{
 			return r(Inst.C(code));
 		}
 
-		LuaValue rkb(uint code)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        LuaValue rkb(uint code)
 		{
 			return rk(Inst.B(code));
 		}
 
-		LuaValue rkc(uint code)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        LuaValue rkc(uint code)
 		{
 			return rk(Inst.C(code));
 		}
@@ -258,6 +267,7 @@ namespace TLua
 
 		Stack<CallInfo> callInfoCache_ = new Stack<CallInfo>();
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		CallInfo allocCallInfo()
 		{
 			if (callInfoCache_.Count > 0) {
@@ -267,6 +277,7 @@ namespace TLua
 			}
 		}
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		void releaseCallInfo(CallInfo c)
 		{
 			c.Prev = null;
@@ -467,231 +478,265 @@ namespace TLua
 				LuaValue v;
 				StringBuilder sb = null;
 
-				while (count != 0) {
-					if (pc_ == -1) {
-						finishNormally = true;
-						break;
-					}
+                    while (count != 0)
+                    {
+                        if (pc_ == -1)
+                        {
+                            finishNormally = true;
+                            break;
+                        }
 
-					var i = func_.Codes[pc_];
-					var opcode = Inst.OpCode(i);
-					var a = Inst.A(i);
-					var ra = base_ + a;
-					if (EnableTrace) {
-						Console.WriteLine(string.Format("* {0,3}[{1,3}] {2}", pc_, func_.DebugInfos[pc_], Inst.Inspect(i)));
-					}
-					pc_++;
+                        var i = func_.Codes[pc_];
+                        var opcode = Inst.OpCode(i);
+                        var a = Inst.A(i);
+                        var ra = base_ + a;
+                        if (EnableTrace)
+                        {
+                            Console.WriteLine(string.Format("* {0,3}[{1,3}] {2}", pc_, func_.DebugInfos[pc_], Inst.Inspect(i)));
+                        }
+                        pc_++;
 
-					switch (opcode) {
-					case OpCode.MOVE:
-						stack_[ra] = rb(i);
-						break;
-					case OpCode.LOADK:
-						stack_[ra] = kst(Inst.Bx(i));
-						break;
-					case OpCode.LOADKX:
-						check(false);
-						break;
-					case OpCode.LOADBOOL:
-						stack_[ra].AsBool = (Inst.B(i) != 0);
-						if (Inst.C(i) != 0) pc_++;
-						break;
-					case OpCode.LOADNIL:
-						b = Inst.B(i);
-						for (int n = 0; n <= b; n++) {
-							stack_[ra + n].Clear();
-						}
-						break;
-					case OpCode.GETUPVAL:
-						stack_[ra] = getUpval(Inst.B(i));
-						break;
-					case OpCode.GETTABUP:
-						v = getUpval(Inst.B(i));
-						stack_[ra] = v.AsTable[rkc(i)];
-						break;
-					case OpCode.GETTABLE:
-						stack_[ra] = rkb(i).AsTable[rkc(i)];
-						break;
-					case OpCode.SETTABUP:
-						v = getUpval(Inst.A(i));
-						v.AsTable[rkb(i)] = rkc(i);
-						break;
-					case OpCode.SETUPVAL:
-						setUpval(Inst.B(i), r(a));
-						break;
-					case OpCode.SETTABLE:
-						r(a).AsTable[rkb(i)] = rkc(i);
-						break;
-					case OpCode.NEWTABLE:
-						stack_[ra].AsTable = new Table();
-						break;
-					case OpCode.SELF: {
-							var tbl = rb(i).AsTable;
-							stack_[ra + 1].AsTable = tbl;
-							stack_[ra] = tbl[rkc(i)];
-						}
-						break;
-					case OpCode.ADD:
-					case OpCode.SUB:
-					case OpCode.MUL:
-					case OpCode.MOD:
-					case OpCode.POW:
-					case OpCode.DIV:
-					case OpCode.IDIV:
-					case OpCode.BAND:
-					case OpCode.BOR:
-					case OpCode.BXOR:
-					case OpCode.SHL:
-					case OpCode.SHR:
-						stack_[ra] = LuaValue.BinOp(opcode, rkb(i), rkc(i));
-						break;
-					case OpCode.UNM:
-					case OpCode.BNOT:
-					case OpCode.NOT:
-						stack_[ra] = LuaValue.UnaryOp(opcode, rkb(i));
-						break;
-					case OpCode.LEN:
-						stack_[ra].AsInt = rb(i).Len();
-						break;
-					case OpCode.CONCAT:
-						b = Inst.B(i);
-						c = Inst.C(i);
-						if (sb == null) sb = new StringBuilder();
-						for (int n = b; n <= c; n++) {
-							sb.Append(stack_[base_ + n]);
-						}
-						stack_[ra].AsString = sb.ToString();
-						sb.Clear();
-						break;
-					case OpCode.JMP:
-						pc_ += Inst.sBx(i);
-						break;
-					case OpCode.EQ:
-					case OpCode.LT:
-					case OpCode.LE: {
-							var cond = LuaValue.CompOp(opcode, rkb(i), rkc(i));
-							if (cond != (Inst.A(i) != 0)) {
-								pc_++;
-							}
-						}
-						break;
-					case OpCode.TEST:
-						if (r(a).ConvertToBool() != (Inst.C(i) != 0)) {
-							pc_++;
-						}
-						break;
-					case OpCode.TESTSET:
-						v = rb(i);
-						if (v.ConvertToBool() == (Inst.C(i) != 0)) {
-							stack_[ra] = v;
-						} else {
-							pc_++;
-						}
-						break;
-					case OpCode.CALL:
-						b = Inst.B(i);
-						wanted = Inst.C(i) - 1;
-						if (b == 0) {
-							nargs = top_ - ra - 1;
-						} else {
-							nargs = b - 1;
-						}
+                        switch (opcode)
+                        {
+                            case OpCode.MOVE:
+                                stack_[ra] = rb(i);
+                                break;
+                            case OpCode.LOADK:
+                                stack_[ra] = kst(Inst.Bx(i));
+                                break;
+                            case OpCode.LOADKX:
+                                check(false);
+                                break;
+                            case OpCode.LOADBOOL:
+                                stack_[ra].AsBool = (Inst.B(i) != 0);
+                                if (Inst.C(i) != 0) pc_++;
+                                break;
+                            case OpCode.LOADNIL:
+                                b = Inst.B(i);
+                                for (int n = 0; n <= b; n++)
+                                {
+                                    stack_[ra + n].Clear();
+                                }
+                                break;
+                            case OpCode.GETUPVAL:
+                                stack_[ra] = getUpval(Inst.B(i));
+                                break;
+                            case OpCode.GETTABUP:
+                                v = getUpval(Inst.B(i));
+                                stack_[ra] = v.AsTable[rkc(i)];
+                                break;
+                            case OpCode.GETTABLE:
+                                stack_[ra] = rkb(i).AsTable[rkc(i)];
+                                break;
+                            case OpCode.SETTABUP:
+                                v = getUpval(Inst.A(i));
+                                v.AsTable[rkb(i)] = rkc(i);
+                                break;
+                            case OpCode.SETUPVAL:
+                                setUpval(Inst.B(i), r(a));
+                                break;
+                            case OpCode.SETTABLE:
+                                r(a).AsTable[rkb(i)] = rkc(i);
+                                break;
+                            case OpCode.NEWTABLE:
+                                stack_[ra].AsTable = new Table();
+                                break;
+                            case OpCode.SELF:
+                                {
+                                    var tbl = rb(i).AsTable;
+                                    stack_[ra + 1].AsTable = tbl;
+                                    stack_[ra] = tbl[rkc(i)];
+                                }
+                                break;
+                            case OpCode.ADD:
+                            case OpCode.SUB:
+                            case OpCode.MUL:
+                            case OpCode.MOD:
+                            case OpCode.POW:
+                            case OpCode.DIV:
+                            case OpCode.IDIV:
+                            case OpCode.BAND:
+                            case OpCode.BOR:
+                            case OpCode.BXOR:
+                            case OpCode.SHL:
+                            case OpCode.SHR:
+                                stack_[ra] = LuaValue.BinOp(opcode, rkb(i), rkc(i));
+                                break;
+                            case OpCode.UNM:
+                            case OpCode.BNOT:
+                            case OpCode.NOT:
+                                stack_[ra] = LuaValue.UnaryOp(opcode, rkb(i));
+                                break;
+                            case OpCode.LEN:
+                                stack_[ra].AsInt = rb(i).Len();
+                                break;
+                            case OpCode.CONCAT:
+                                b = Inst.B(i);
+                                c = Inst.C(i);
+                                if (sb == null) sb = new StringBuilder();
+                                for (int n = b; n <= c; n++)
+                                {
+                                    sb.Append(stack_[base_ + n]);
+                                }
+                                stack_[ra].AsString = sb.ToString();
+                                sb.Clear();
+                                break;
+                            case OpCode.JMP:
+                                pc_ += Inst.sBx(i);
+                                break;
+                            case OpCode.EQ:
+                            case OpCode.LT:
+                            case OpCode.LE:
+                                {
+                                    var cond = LuaValue.CompOp(opcode, rkb(i), rkc(i));
+                                    if (cond != (Inst.A(i) != 0))
+                                    {
+                                        pc_++;
+                                    }
+                                }
+                                break;
+                            case OpCode.TEST:
+                                if (r(a).ConvertToBool() != (Inst.C(i) != 0))
+                                {
+                                    pc_++;
+                                }
+                                break;
+                            case OpCode.TESTSET:
+                                v = rb(i);
+                                if (v.ConvertToBool() == (Inst.C(i) != 0))
+                                {
+                                    stack_[ra] = v;
+                                }
+                                else
+                                {
+                                    pc_++;
+                                }
+                                break;
+                            case OpCode.CALL:
+                                b = Inst.B(i);
+                                wanted = Inst.C(i) - 1;
+                                if (b == 0)
+                                {
+                                    nargs = top_ - ra - 1;
+                                }
+                                else
+                                {
+                                    nargs = b - 1;
+                                }
 
-						precall(ra, nargs, ra, wanted);
-						break;
-					case OpCode.TAILCALL: {
-							b = Inst.B(i);
-							if (b == 0) {
-								nargs = top_ - ra - 1;
-							} else {
-								nargs = b - 1;
-							}
-							var oldCi = ci_;
-							ci_ = ci_.Prev;
-							releaseCallInfo(oldCi);
-							top_ = oldCi.Result + nargs + 1;
-							copyAndFill(ra, nargs + 1, oldCi.Func, nargs + 1);
+                                precall(ra, nargs, ra, wanted);
+                                break;
+                            case OpCode.TAILCALL:
+                                {
+                                    b = Inst.B(i);
+                                    if (b == 0)
+                                    {
+                                        nargs = top_ - ra - 1;
+                                    }
+                                    else
+                                    {
+                                        nargs = b - 1;
+                                    }
+                                    var oldCi = ci_;
+                                    ci_ = ci_.Prev;
+                                    releaseCallInfo(oldCi);
+                                    top_ = oldCi.Result + nargs + 1;
+                                    copyAndFill(ra, nargs + 1, oldCi.Func, nargs + 1);
 
-							pc_ = ci_.SavedPc;
+                                    pc_ = ci_.SavedPc;
 
-							if (precall(oldCi.Func, nargs, oldCi.Result, oldCi.Wanted)) {
-								pc_ = ci_.SavedPc;
-								base_ = ci_.Base;
-								cl_ = stack_[ci_.Func].AsClosure;
-								func_ = cl_.Func;
-							}
-						}
-						break;
-					case OpCode.RETURN:
-						b = Inst.B(i);
-						doReturn(ra, b - 1);
-						break;
-					case OpCode.FORLOOP: {
-							int stp = r(a + 2).AsInt;
-							int cnt = r(a).AsInt + stp;
-							int end = r(a + 1).AsInt;
-							stack_[ra].AsInt = cnt;
-							if ((stp > 0 && cnt <= end) || (stp < 0 && cnt >= end)) {
-								pc_ += Inst.sBx(i);
-								stack_[ra + 3].AsInt = cnt;
-							}
-						}
-						break;
-					case OpCode.FORPREP:
-						stack_[ra].AsInt = r(a).AsInt - r(a + 2).AsInt;
-						pc_ += Inst.sBx(i);
-						break;
-					case OpCode.TFORCALL:
-						c = Inst.C(i);
-						precall(ra, 2, ra + 3, c - 1);
-						break;
-					case OpCode.TFORLOOP: {
-							var iter = r(a + 1);
-							if (!iter.IsNil) {
-								stack_[ra] = iter;
-								pc_ += Inst.sBx(i);
-							}
-						}
-						break;
-					case OpCode.SETLIST: {
-							var tbl = r(a).AsTable;
-							var start = Inst.C(i) - 1;
-							var size = Inst.B(i);
-							if (size == 0) {
-								size = top_ - ra - 1;
-							}
-							if (start < 0) {
-								throw new Exception("not implemented");
-							}
-							tbl.Resize(size);
-							for (int n = 0; n < size; n++) {
-								tbl[start + n] = r(a + 1 + n);
-							}
-						}
-						break;
-					case OpCode.CLOSURE: {
-							var proto = func_.Protos[Inst.Bx(i)];
-							stack_[ra].AsClosure = newClosure(proto, base_, cl_);
-						}
-						break;
-					case OpCode.VARARG: {
-							b = Inst.B(i);
-							var fromSize = base_ - ci_.Func - 1;
-							int toSize;
-							if (b == 0) {
-								toSize = fromSize;
-							} else {
-								toSize = b - 1;
-							}
-							copyAndFill(ci_.Func + 1, fromSize, ra, toSize);
-							top_ = ra + toSize;
-						}
-						break;
-					default:
-						throw new Exception("invalid opcode " + opcode);
-					}
-					if( count >= 0 ) count--;
-				}
+                                    if (precall(oldCi.Func, nargs, oldCi.Result, oldCi.Wanted))
+                                    {
+                                        pc_ = ci_.SavedPc;
+                                        base_ = ci_.Base;
+                                        cl_ = stack_[ci_.Func].AsClosure;
+                                        func_ = cl_.Func;
+                                    }
+                                }
+                                break;
+                            case OpCode.RETURN:
+                                b = Inst.B(i);
+                                doReturn(ra, b - 1);
+                                break;
+                            case OpCode.FORLOOP:
+                                {
+                                    int stp = r(a + 2).AsInt;
+                                    int cnt = r(a).AsInt + stp;
+                                    int end = r(a + 1).AsInt;
+                                    stack_[ra].AsInt = cnt;
+                                    if ((stp > 0 && cnt <= end) || (stp < 0 && cnt >= end))
+                                    {
+                                        pc_ += Inst.sBx(i);
+                                        stack_[ra + 3].AsInt = cnt;
+                                    }
+                                }
+                                break;
+                            case OpCode.FORPREP:
+                                stack_[ra].AsInt = r(a).AsInt - r(a + 2).AsInt;
+                                pc_ += Inst.sBx(i);
+                                break;
+                            case OpCode.TFORCALL:
+                                c = Inst.C(i);
+                                precall(ra, 2, ra + 3, c - 1);
+                                break;
+                            case OpCode.TFORLOOP:
+                                {
+                                    var iter = r(a + 1);
+                                    if (!iter.IsNil)
+                                    {
+                                        stack_[ra] = iter;
+                                        pc_ += Inst.sBx(i);
+                                    }
+                                }
+                                break;
+                            case OpCode.SETLIST:
+                                {
+                                    var tbl = r(a).AsTable;
+                                    var start = Inst.C(i) - 1;
+                                    var size = Inst.B(i);
+                                    if (size == 0)
+                                    {
+                                        size = top_ - ra - 1;
+                                    }
+                                    if (start < 0)
+                                    {
+                                        throw new Exception("not implemented");
+                                    }
+                                    tbl.Resize(size);
+                                    for (int n = 0; n < size; n++)
+                                    {
+                                        tbl[start + n] = r(a + 1 + n);
+                                    }
+                                }
+                                break;
+                            case OpCode.CLOSURE:
+                                {
+                                    var proto = func_.Protos[Inst.Bx(i)];
+                                    stack_[ra].AsClosure = newClosure(proto, base_, cl_);
+                                }
+                                break;
+                            case OpCode.VARARG:
+                                {
+                                    b = Inst.B(i);
+                                    var fromSize = base_ - ci_.Func - 1;
+                                    int toSize;
+                                    if (b == 0)
+                                    {
+                                        toSize = fromSize;
+                                    }
+                                    else
+                                    {
+                                        toSize = b - 1;
+                                    }
+                                    copyAndFill(ci_.Func + 1, fromSize, ra, toSize);
+                                    top_ = ra + toSize;
+                                }
+                                break;
+                            default:
+                                throw new Exception("invalid opcode " + opcode);
+                        }
+                        if (count >= 0) count--;
+                    }
 			} finally {
 				try {
 					if (!finishNormally) {
