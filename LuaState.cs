@@ -86,12 +86,12 @@ namespace TLua
             var file = File.OpenRead(filename);
             var zio = new ZIO(file);
             var c = zio.ReadByte();
-            var lexer = new Lexer(this, zio, filename, (Lexer.TokenChar)c);
+            var lexer = new Lexer(this, zio, filename, (Lexer.TokenKind)c);
             for (;;)
             {
                 lexer.ReadNext();
-                Console.WriteLine("{0}", lexer.txtToken(lexer.Tk.token));
-                if (lexer.Tk.token.kind() == Lexer.TokenKind.Eos)
+                Console.WriteLine("{0,12} {1}", lexer.Tk.token.ToString(), lexer.txtToken(lexer.Tk.token));
+                if (lexer.Tk.token == Lexer.TokenKind.Eos)
                 {
                     break;
                 }

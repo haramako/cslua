@@ -7,33 +7,19 @@ namespace TLua
 {
     static class TokenCharExtension
     {
-        internal static bool IsChar(this Lexer.TokenChar token)
+        internal static bool IsChar(this Lexer.TokenKind token)
         {
             return token >= 0;
         }
 
-        internal static char c(this Lexer.TokenChar token)
+        internal static char c(this Lexer.TokenKind token)
         {
             return (char)token;
-        }
-
-        internal static Lexer.TokenKind kind(this Lexer.TokenChar token)
-        {
-            return (Lexer.TokenKind)(-(int)token);
-        }
-
-        internal static Lexer.TokenChar tc(this Lexer.TokenKind token)
-        {
-            return (Lexer.TokenChar)(-(int)token);
         }
     }
 
     public class Lexer
     {
-        internal enum TokenChar
-        {
-        }
-
         /*
         * WARNING: if you change the order of this enumeration,
         * grep "ORDER RESERVED"
@@ -41,7 +27,7 @@ namespace TLua
         internal enum TokenKind
         {
             /* terminal symbols denoted by reserved words */
-            And = 1,
+            And = -38,
             Break,
             Do,
             Else,
@@ -78,7 +64,7 @@ namespace TLua
             Float,
             Int,
             Name,
-            String,
+            String, // last element must be -1
         }
 
         /* number of reserved words */
@@ -86,14 +72,14 @@ namespace TLua
 
         internal struct Token
         {
-            internal TokenChar token;
+            internal TokenKind token;
             internal LuaValue seminfo;
         }
 
 
         /* state of the lexer plus state of the parser when shared by all
            functions */
-        TokenChar current;  /* current character (charint) */
+        TokenKind current;  /* current character (charint) */
         int linenumber;  /* input line counter */
         int lastline;  /* line of last token 'consumed' */
         Token t;  /* current token */
@@ -108,12 +94,12 @@ namespace TLua
         string envn;  /* environment variable name */
 
 
-        internal Lexer(LuaState L_, ZIO z_, string source_, TokenChar firstchar)
+        internal Lexer(LuaState L_, ZIO z_, string source_, TokenKind firstchar)
         {
             t.token = 0;
             L = L_;
             current = firstchar;
-            lookahead.token = TokenKind.Eos.tc();  /* no look-ahead token */
+            lookahead.token = TokenKind.Eos;  /* no look-ahead token */
             z = z_;
             fs = null;
             linenumber = 1;
@@ -127,11 +113,11 @@ namespace TLua
             var c = z.ReadChar();
             if( c == -1)
             {
-                current = TokenKind.Eos.tc();
+                current = TokenKind.Eos;
             }
             else
             {
-                current = (TokenChar)c;
+                current = (TokenKind)c;
             }
         }
 
@@ -197,16 +183,16 @@ namespace TLua
             buff.Append(c);
         }
 
-        void save(TokenChar c)
+        void save(TokenKind c)
         {
             buff.Append((char)c);
         }
 
-        static string token2str(TokenChar token) 
+        static string token2str(TokenKind token) 
         {
             if( !token.IsChar())
             {
-                return tokenKindDict[token.kind()];
+                return tokenKindDict[token];
             }
             else
             {
@@ -215,9 +201,9 @@ namespace TLua
         }
 
 
-        internal string txtToken (TokenChar token)
+        internal string txtToken (TokenKind token)
         {
-            switch (token.kind())
+            switch (token)
             {
                 case TokenKind.Name:
                 case TokenKind.String:
@@ -235,12 +221,12 @@ namespace TLua
         }
 
         void lexerror(string msg, TokenKind token) {
-            throw new ParserException(string.Format("{0} near {1}", msg, txtToken(token.tc())));
+            throw new ParserException(string.Format("{0} near {1}", msg, txtToken(token)));
         }
 
         void syntaxerror(string msg)
         {
-            lexerror(msg, t.token.kind());
+            lexerror(msg, t.token);
         }
 
         /*
@@ -357,7 +343,7 @@ namespace TLua
         int skipSep()
         {
             int count = 0;
-            TokenChar s = current;
+            TokenKind s = current;
             assert((char)s == '[' || (char)s == ']');
             saveAndNext();
             while ((char)current == '=')
@@ -629,7 +615,7 @@ namespace TLua
             seminfo = new LuaValue(buff.ToString(1, buff.Length - 2));
         }
 
-        TokenChar llex(out LuaValue seminfo)
+        TokenKind llex(out LuaValue seminfo)
         {
             seminfo = new LuaValue();
             buff.Clear();
@@ -656,7 +642,7 @@ namespace TLua
                             next();
                             if ((char)current != '-')
                             {
-                                return (TokenChar)'-';
+                                return (TokenKind)'-';
                             }
                             /* else is a comment */
                             next();
@@ -684,58 +670,58 @@ namespace TLua
                             if (sep >= 0)
                             {
                                 readLongString(out seminfo, sep, true);
-                                return TokenKind.String.tc();
+                                return TokenKind.String;
                             }
                             else if (sep != -1)
                             {
                                 /* '[=...' missing second bracket */
                                 lexerror("invalid long string delimiter", TokenKind.String);
                             }
-                            return (TokenChar)'[';
+                            return (TokenKind)'[';
                         }
                     case '=':
                         {
                             next();
-                            if (check_next1('=')) return TokenKind.Eq.tc();
-                            else return (TokenChar)'=';
+                            if (check_next1('=')) return TokenKind.Eq;
+                            else return (TokenKind)'=';
                         }
                     case '<':
                         {
                             next();
-                            if (check_next1('=')) return TokenKind.Le.tc();
-                            else if (check_next1('<')) return TokenKind.Shl.tc();
-                            else return (TokenChar)'<';
+                            if (check_next1('=')) return TokenKind.Le;
+                            else if (check_next1('<')) return TokenKind.Shl;
+                            else return (TokenKind)'<';
                         }
                     case '>':
                         {
                             next();
-                            if (check_next1('=')) return TokenKind.Ge.tc();
-                            else if (check_next1('>')) return TokenKind.Shr.tc();
-                            else return (TokenChar)'>';
+                            if (check_next1('=')) return TokenKind.Ge;
+                            else if (check_next1('>')) return TokenKind.Shr;
+                            else return (TokenKind)'>';
                         }
                     case '/':
                         {
                             next();
-                            if (check_next1('/')) return TokenKind.IDiv.tc();
-                            else return (TokenChar)'/';
+                            if (check_next1('/')) return TokenKind.IDiv;
+                            else return (TokenKind)'/';
                         }
                     case '~':
                         {
                             next();
-                            if (check_next1('=')) return TokenKind.Ne.tc();
-                            else return (TokenChar)'~';
+                            if (check_next1('=')) return TokenKind.Ne;
+                            else return (TokenKind)'~';
                         }
                     case ':':
                         {
                             next();
-                            if (check_next1(':')) return TokenKind.DbColon.tc();
-                            else return (TokenChar)':';
+                            if (check_next1(':')) return TokenKind.DbColon;
+                            else return (TokenKind)':';
                         }
                     case '"':
                     case '\'':
                         {  /* short literal strings */
                             readString((char)current, out seminfo);
-                            return TokenKind.DbColon.tc();
+                            return TokenKind.DbColon;
                         }
                     case '.':
                         {  /* '.', '..', '...', or number */
@@ -743,11 +729,11 @@ namespace TLua
                             if (check_next1('.'))
                             {
                                 if (check_next1('.'))
-                                    return TokenKind.Dots.tc();   /* '...' */
-                                else return TokenKind.Concat.tc();   /* '..' */
+                                    return TokenKind.Dots;   /* '...' */
+                                else return TokenKind.Concat;   /* '..' */
                             }
-                            else if (!Char.IsDigit((char)current)) return (TokenChar)'.';
-                            else return readNumeral(out seminfo).tc();
+                            else if (!Char.IsDigit((char)current)) return (TokenKind)'.';
+                            else return readNumeral(out seminfo);
                         }
                     case '0':
                     case '1':
@@ -760,11 +746,11 @@ namespace TLua
                     case '8':
                     case '9':
                         {
-                            return readNumeral(out seminfo).tc();
+                            return readNumeral(out seminfo);
                         }
                     case '\0':
                         {
-                            return TokenKind.Eos.tc();
+                            return TokenKind.Eos;
                         }
                     default:
                         {
@@ -780,11 +766,11 @@ namespace TLua
                                 if (tokenDict.TryGetValue(ts, out kind))
                                 {
                                     /* reserved word? */
-                                    return kind.tc();
+                                    return kind;
                                 }
                                 else
                                 {
-                                    return TokenKind.Name.tc();
+                                    return TokenKind.Name;
                                 }
                             }
                             else
@@ -816,10 +802,10 @@ namespace TLua
         public void ReadNext()
         {
             lastline = linenumber;
-            if (lookahead.token.kind() != TokenKind.Eos)
+            if (lookahead.token != TokenKind.Eos)
             {  /* is there a look-ahead token? */
                 t = lookahead;  /* use this one */
-                lookahead.token = TokenKind.Eos.tc();  /* and discharge it */
+                lookahead.token = TokenKind.Eos;  /* and discharge it */
             }
             else
             {
@@ -835,9 +821,9 @@ namespace TLua
             }
         }
 
-        TokenChar ReadLookahead()
+        TokenKind ReadLookahead()
         {
-            assert(lookahead.token.kind() == TokenKind.Eos);
+            assert(lookahead.token == TokenKind.Eos);
             lookahead.token = llex(out lookahead.seminfo);
             return lookahead.token;
         }
