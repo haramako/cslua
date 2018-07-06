@@ -119,7 +119,7 @@ namespace TLua
 		public void InitClosureTest()
 		{
 			{
-				var f = new Function() { Upvals = new UpvalTag[] { } };
+				var f = new Function();
 				var c = new Closure(f);
 				var v = new LuaValue(c);
 				Assert.AreEqual(ValueType.Closure, v.ValueType);

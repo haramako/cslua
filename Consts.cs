@@ -96,9 +96,28 @@ namespace TLua
 			}
 		}
 
-	}
+        public static uint SetOpCode(uint inst, OpCode op)
+        {
+            return inst;
+        }
 
-	public class OpInfo
+        public static uint SetB(uint inst, int v)
+        {
+            return inst;
+        }
+
+        public static uint SetC(uint inst, int v)
+        {
+            return inst;
+        }
+
+        public static uint SetBx(uint inst, int v)
+        {
+            return inst;
+        }
+    }
+
+    public class OpInfo
 	{
 		public string Name;
 		public OpType Type;
@@ -170,7 +189,12 @@ namespace TLua
 		CLOSURE = 44,
 		VARARG = 45,
 		EXTRAARG = 46,
-	}
+
+        // TODO: 追加分、あとで順番を整える
+        PREPVARARG,
+        FORPREP1,
+        FORLOOP1,
+    }
 
 	public class OpDatabase
 	{

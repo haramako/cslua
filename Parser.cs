@@ -86,7 +86,7 @@ namespace TLua
         /* dynamic structures used by the parser */
         internal class DynData
         {
-            internal List<VarDesc> arr = new List<VarDesc>;
+            internal List<VarDesc> arr = new List<VarDesc>();
             internal int n;
             internal int size;
             internal LabelList gt;  /* list of pending gotos */
@@ -252,7 +252,7 @@ namespace TLua
 
         string str_checkname(Lexer ls) {
             check(ls, TokenKind.Name);
-            var ts = ls.Tk.seminfo.ts;
+            var ts = ls.Tk.ts;
             ls.ReadNext();
             return ts;
         }
@@ -276,15 +276,15 @@ namespace TLua
         }
 
 
-        ExpDesc codestring(Lexer ls, string s)
+        void codestring(Lexer ls, ExpDesc e, string s)
         {
-            return init_exp(ExpKind.Const, ls.fs.f.AddConst(new LuaValue(s)));
+            init_exp(e, ExpKind.Const, ls.fs.f.AddConst(new LuaValue(s)));
         }
 
 
-        ExpDesc checkname(Lexer ls)
+        void checkname(Lexer ls, ExpDesc e)
         {
-            return codestring(ls, str_checkname(ls));
+            codestring(ls, e, str_checkname(ls));
         }
 
 
@@ -404,7 +404,7 @@ namespace TLua
             {
                 bl = bl.previous;
             }
-            bl.upval = 1;
+            bl.upval = true;
         }
 
 
@@ -412,23 +412,22 @@ namespace TLua
           Find variable with given name 'n'. If it is an upvalue, add this
           upvalue into all intermediate functions.
         */
-        ExpDesc singlevaraux(FuncState fs, string n, bool base_) {
+        void singlevaraux(FuncState fs, string n, ExpDesc var, bool base_) {
             if (fs == null)
             {
                 /* no more levels? */
-                return init_exp(ExpKind.Void, 0);  /* default is global */
+                init_exp(var, ExpKind.Void, 0);  /* default is global */
             }
             else
             {
                 int v = searchvar(fs, n);  /* look up locals at current level */
                 if (v >= 0)
                 {  /* found? */
-                    var vr = init_exp(ExpKind.Local, v);  /* variable is local */
+                    init_exp(var, ExpKind.Local, v);  /* variable is local */
                     if (!base_)
                     {
                         markupval(fs, v);  /* local will be used as an upval */
                     }
-                    return vr;
                 }
                 else
                 {  /* not found as local at current level; try upvalues */
@@ -436,16 +435,16 @@ namespace TLua
                     if (idx < 0)
                     {
                         /* not found? */
-                        var vr = singlevaraux(fs.prev, n, false);  /* try upper levels */
-                        if (vr.k == ExpKind.Void)
+                        singlevaraux(fs.prev, n, var, false);  /* try upper levels */
+                        if (var.k == ExpKind.Void)
                         {
                             /* not found? */
-                            return vr;  /* it is a global */
+                            return;  /* it is a global */
                         }
                         /* else was LOCAL or UPVAL */
-                        idx = newupvalue(fs, n, vr);  /* will be a new upvalue */
+                        idx = newupvalue(fs, n, var);  /* will be a new upvalue */
                     }
-                    return init_exp(ExpKind.Upval, idx);  /* new or old upvalue */
+                    init_exp(var, ExpKind.Upval, idx);  /* new or old upvalue */
                 }
             }
         }
@@ -454,12 +453,13 @@ namespace TLua
         {
             var varname = str_checkname(ls);
             FuncState fs = ls.fs;
-            var v = singlevaraux(fs, varname, true);
-            if (v.k == ExpKind.Void) {  /* global name? */
-                var v2 = singlevaraux(fs, ls.envn, true);  /* get environment variable */
+            singlevaraux(fs, varname, var, true);
+            if (var.k == ExpKind.Void) {  /* global name? */
+                ExpDesc key = new ExpDesc();
+                singlevaraux(fs, ls.envn, var, true);  /* get environment variable */
                 Lexer.assert(var.k != ExpKind.Void);  /* this one must exist */
-                var key = codestring(ls, varname);  /* key is variable name */
-                Code.Code.indexed(fs, var, key);  /* env[varname] */
+                codestring(ls, key, varname);  /* key is variable name */
+                Code.indexed(fs, var, key);  /* env[varname] */
             }
         }
 
@@ -510,7 +510,7 @@ namespace TLua
                 var msg = string.Format("<goto {0}> at line {1} jumps into the scope of local '{2}'", gt.name, gt.line, vname);
                 Code.semerror(ls, msg);
             }
-            Code.patchgoto(fs, gt.pc, label.pc, 1);
+            Code.patchgoto(fs, gt.pc, label.pc, true);
             /* remove goto from pending list */
             for (i = g; i < gl.n - 1; i++)
                 gl.arr[i] = gl.arr[i + 1];
@@ -531,7 +531,7 @@ namespace TLua
                 LabelDesc lb = dyd.label.arr[i];
                 if (eqstr(lb.name, gt.name)) {  /* correct label? */
                     if (gt.nactvar > lb.nactvar &&
-                        (bl.upval != 0 || dyd.label.n > bl.firstlabel))
+                        (bl.upval || dyd.label.n > bl.firstlabel))
                     {
                         Code.patchclose(ls.fs, gt.pc);
                     }
@@ -618,7 +618,7 @@ namespace TLua
             bl.firstlabel = fs.ls.dyd.label.n;
             bl.firstgoto = fs.ls.dyd.gt.n;
             bl.brks = NoJump;
-            bl.brkcls = 0;
+            bl.brkcls = false;
             bl.upval = false;
             bl.previous = fs.bl;
             fs.bl = bl;
@@ -688,7 +688,7 @@ namespace TLua
         Function addprototype(Lexer ls)
         {
             Function clp = new Function();
-            fs.f.Protos.Add(clp);
+            ls.fs.f.Protos.Add(clp);
             return clp;
         }
 
@@ -699,11 +699,10 @@ namespace TLua
         ** so that, if it invokes the GC, the GC knows which registers
         ** are in use at that time.
         */
-        ExpDesc codeclosure(Lexer ls) {
+        void codeclosure(Lexer ls, ExpDesc v) {
             FuncState fs = ls.fs.prev;
-            var v = init_exp(ExpKind.Reloc, Code.codeABx(fs, OpCode.CLOSURE, 0, fs.np - 1));
+            init_exp(v, ExpKind.Reloc, Code.codeABx(fs, OpCode.CLOSURE, 0, fs.np - 1));
             Code.exp2nextreg(fs, v);  /* fix it at the last register */
-            return v;
         }
 
 
@@ -797,9 +796,10 @@ namespace TLua
         {
             /* fieldsel . ['.' | ':'] NAME */
             FuncState fs = ls.fs;
+            ExpDesc key = new ExpDesc();
             Code.exp2anyregup(fs, v);
             ls.ReadNext();  /* skip the dot or colon */
-            var key = checkname(ls);
+            checkname(ls, key);
             Code.indexed(fs, v, key);
         }
 
@@ -808,7 +808,7 @@ namespace TLua
         {
             /* index . '[' expr ']' */
             ls.ReadNext();  /* skip the '[' */
-            var v = expr(ls);
+            expr(ls, v);
             Code.exp2val(ls.fs, v);
             checknext(ls, (TokenKind)']');
         }
@@ -835,21 +835,23 @@ namespace TLua
             /* recfield . (NAME | '['exp']') = exp */
             FuncState fs = ls.fs;
             int reg = ls.fs.freereg;
-            ExpDesc tab, key;
+            ExpDesc tab;
+            ExpDesc key = new ExpDesc();
+            ExpDesc val = new ExpDesc();
             if (ls.Tk.token == TokenKind.Name)
             {
                 checklimit(fs, cc.nh, Int32.MaxValue, "items in a constructor");
-                key = checkname(ls);
+                checkname(ls, key);
             }
             else
             {  /* ls.t.token == '[' */
-                key = yindex(ls);
+                yindex(ls, key);
             }
             cc.nh++;
             checknext(ls, '=');
             tab = cc.t;
             Code.indexed(fs, tab, key);
-            var val = expr(ls);
+            expr(ls, val);
             Code.storevar(fs, tab, val);
             fs.freereg = reg;  /* free registers */
         }
@@ -941,11 +943,11 @@ namespace TLua
             FuncState fs = ls.fs;
             int line = ls.linenumber;
             int pc = Code.codeABC(fs, OpCode.NEWTABLE, 0, 0, 0);
-            ConsControl cc;
+            ConsControl cc = new ConsControl();
             cc.na = cc.nh = cc.tostore = 0;
             cc.t = t;
-            t = init_exp(ExpKind.Reloc, pc);
-            cc.v = init_exp(ExpKind.Void, 0);  /* no value (yet) */
+            init_exp(t, ExpKind.Reloc, pc);
+            init_exp(cc.v, ExpKind.Void, 0);  /* no value (yet) */
             Code.exp2nextreg(ls.fs, t);  /* fix it at stack top */
             checknext(ls, '{');
             do {
@@ -957,8 +959,8 @@ namespace TLua
             check_match(ls, '}', '{', line);
             lastlistfield(fs, cc);
             var inst = fs.f.Codes[pc];
-            inst = Inst.SetB(inst, Code.int2fb(cc.na));
-            inst = Inst.SetC(inst, Code.int2fb(cc.nh));
+            inst = Inst.SetB(inst, Code.int2fb((uint)cc.na));
+            inst = Inst.SetC(inst, Code.int2fb((uint)cc.nh));
         }
 
         /* }====================================================================== */
@@ -966,7 +968,7 @@ namespace TLua
 
         void setvararg(FuncState fs, int nparams)
         {
-            fs.f.is_vararg = 1;
+            fs.f.HasVarArg = true;
             Code.codeABC(fs, OpCode.PREPVARARG, nparams, 0, 0);
         }
 
@@ -998,21 +1000,21 @@ namespace TLua
                 } while (!isvararg && testnext(ls, ','));
             }
             adjustlocalvars(ls, nparams);
-            f.numparams = (byte)fs.nactvar;
+            f.ParamNum = (byte)fs.nactvar;
             if (isvararg)
             {
-                setvararg(fs, f.numparams);  /* declared vararg */
+                setvararg(fs, f.ParamNum);  /* declared vararg */
             }
             Code.reserveregs(fs, fs.nactvar);  /* reserve registers for parameters */
         }
 
 
-        ExpDesc body(Lexer ls, bool ismethod, int line) {
+        void body(Lexer ls, ExpDesc e, bool ismethod, int line) {
             /* body .  '(' parlist ')' block END */
             FuncState new_fs = new FuncState();
-            BlockCnt bl;
+            BlockCnt bl = new BlockCnt();
             new_fs.f = addprototype(ls);
-            new_fs.f.linedefined = line;
+            new_fs.f.LineStart = line;
             open_func(ls, new_fs, bl);
             checknext(ls, '(');
             if (ismethod) {
@@ -1022,11 +1024,10 @@ namespace TLua
             parlist(ls);
             checknext(ls, ')');
             statlist(ls);
-            new_fs.f.lastlinedefined = ls.linenumber;
+            new_fs.f.LineEnd = ls.linenumber;
             check_match(ls, TokenKind.End, TokenKind.Function, line);
-            var e = codeclosure(ls);
+            codeclosure(ls, e);
             close_func(ls);
-            return e;
         }
 
 
@@ -1034,7 +1035,7 @@ namespace TLua
         {
             /* explist . expr { ',' expr } */
             int n = 1;  /* at least one expression */
-            var v = expr(ls);
+            expr(ls, v);
             while (testnext(ls, ',')) {
                 Code.exp2nextreg(ls.fs, v);
                 expr(ls, v);
@@ -1047,7 +1048,7 @@ namespace TLua
         void funcargs(Lexer ls, ExpDesc f, int line)
         {
             FuncState fs = ls.fs;
-            ExpDesc args;
+            ExpDesc args = new ExpDesc();
             int nparams;
             switch (ls.Tk.token) {
                 case (TokenKind)'(': {  /* funcargs . '(' [ explist ] ')' */
@@ -1066,7 +1067,7 @@ namespace TLua
                         break;
                     }
                 case TokenKind.String: {  /* funcargs . STRING */
-                        codestring(ls, args, ls.t.seminfo.ts);
+                        codestring(ls, args, ls.Tk.ts);
                         ls.ReadNext();  /* must use 'seminfo' before 'next' */
                         break;
                     }
@@ -1102,40 +1103,42 @@ namespace TLua
         ** =======================================================================
         */
 
-        ExpDesc primaryexp(Lexer ls)
+        void primaryexp(Lexer ls, ExpDesc v)
         {
             /* primaryexp . NAME | '(' expr ')' */
-            switch (ls.t.token) {
+            switch (ls.Tk.token) {
                 case (TokenKind)'(': {
                         int line = ls.linenumber;
                         ls.ReadNext();
-                        var v = expr(ls);
+                        expr(ls, v);
                         check_match(ls, ')', '(', line);
                         Code.dischargevars(ls.fs, v);
-                        return v;
+                        return;
                     }
                 case TokenKind.Name: {
-                        return singlevar(ls);
+                        singlevar(ls, v);
+                        return;
                     }
                 case TokenKind.Undef: {
                         ls.ReadNext();
-                        return init_exp(ExpKind.Undef, 0);
+                        init_exp(v, ExpKind.Undef, 0);
+                        return;
                     }
                 default: 
                     {
                         ls.syntaxerror("unexpected symbol");
-                        return null;
+                        break;
                     }
             }
         }
 
 
-        ExpDesc suffixedexp(Lexer ls) {
+        void suffixedexp(Lexer ls, ExpDesc v) {
             /* suffixedexp .
                  primaryexp { '.' NAME | '[' exp ']' | ':' NAME funcargs | funcargs } */
             FuncState fs = ls.fs;
             int line = ls.linenumber;
-            var v = primaryexp(ls);
+            primaryexp(ls, v);
             for (;;) {
                 switch (ls.Tk.token) {
                     case (TokenKind)'.': {  /* fieldsel */
@@ -1144,24 +1147,29 @@ namespace TLua
                         }
                     case (TokenKind)'[': {  /* '[' exp ']' */
                             Code.exp2anyregup(fs, v);
-                            var key = yindex(ls);
+                            ExpDesc key = new ExpDesc();
+                            yindex(ls, key);
                             Code.indexed(fs, v, key);
+                            break;
                         }
                     case (TokenKind)':': {  /* ':' NAME funcargs */
+                            ExpDesc key = new ExpDesc();
                             ls.ReadNext();
-                            var key = checkname(ls);
+                            checkname(ls, key);
                             Code.self(fs, v, key);
                             funcargs(ls, v, line);
+                            break;
                         }
                     case (TokenKind)'(':
                     case TokenKind.String:
                     case (TokenKind)'{':
                         {  /* funcargs */
                             Code.exp2nextreg(fs, v);
-                            var v = funcargs(ls, v, line);
+                            funcargs(ls, v, line);
+                            break;
                         }
                     default:
-                        return v;
+                        break;
                 }
             }
         }
@@ -1170,38 +1178,37 @@ namespace TLua
         void simpleexp(Lexer ls, ExpDesc v) {
             /* simpleexp . FLT | INT | STRING | NIL | TRUE | FALSE | ... |
                             constructor | FUNCTION body | suffixedexp */
-            switch (ls.t.token) {
+            switch (ls.Tk.token) {
                 case TokenKind.Float: {
-                        init_exp(v, VKFLT, 0);
-                        v.u.nval = ls.t.seminfo.r;
+                        init_exp(v, ExpKind.Float, 0);
+                        v.nval = ls.Tk.r;
                         break;
                     }
                 case TokenKind.Int: {
-                        init_exp(v, VKINT, 0);
-                        v.u.ival = ls.t.seminfo.i;
+                        init_exp(v, ExpKind.Int, 0);
+                        v.ival = ls.Tk.i;
                         break;
                     }
                 case TokenKind.String: {
-                        codestring(ls, v, ls.t.seminfo.ts);
+                        codestring(ls, v, ls.Tk.ts);
                         break;
                     }
                 case TokenKind.Nil: {
-                        init_exp(v, TokenKind.Nil, 0);
+                        init_exp(v, ExpKind.Nil, 0);
                         break;
                     }
                 case TokenKind.True: {
-                        init_exp(v, TokenKind.True, 0);
+                        init_exp(v, ExpKind.True, 0);
                         break;
                     }
                 case TokenKind.False: {
-                        init_exp(v, TokenKind.False, 0);
+                        init_exp(v, ExpKind.False, 0);
                         break;
                     }
                 case TokenKind.Dots: {  /* vararg */
                         FuncState fs = ls.fs;
-                        check_condition(ls, fs.f.is_vararg,
-                                        "cannot use '...' outside a vararg function");
-                        init_exp(v, VVARARG, Code.codeABC(fs, OpCode.VARARG, 0, 0, 1));
+                        check_condition(ls, fs.f.HasVarArg, "cannot use '...' outside a vararg function");
+                        init_exp(v, ExpKind.VarArg, Code.codeABC(fs, OpCode.VARARG, 0, 0, 1));
                         break;
                     }
                 case (TokenKind)'{': {  /* constructor */
@@ -1210,7 +1217,7 @@ namespace TLua
                     }
                 case TokenKind.Function: {
                         ls.ReadNext();
-                        body(ls, v, 0, ls.linenumber);
+                        body(ls, v, false, ls.linenumber);
                         return;
                     }
                 default: {
@@ -1237,11 +1244,11 @@ namespace TLua
             }
         }
 
-        enum UnOpr {
+        internal enum UnOpr {
             MINUS, BNOT, NOT, LEN, NOUNOPR
         }
 
-        enum BinOpr
+        internal enum BinOpr
         {
             ADD, SUB, MUL, MOD, POW,
             DIV,
@@ -1376,10 +1383,25 @@ namespace TLua
         */
         internal class LHS_assign
         {
-            LHS_assign prev;
-            ExpDesc v;  /* variable (global, local, upvalue, or indexed) */
+            internal LHS_assign prev;
+            internal ExpDesc v;  /* variable (global, local, upvalue, or indexed) */
         }
 
+
+        static bool vkisindexed(ExpKind k)
+        {
+            return (ExpKind.Indexed <= (k) && (k) <= ExpKind.IndexString);
+        }
+
+        static bool vkisvar(ExpKind k)
+        {
+            return (ExpKind.Local <= (k) && (k) <= ExpKind.IndexString);
+        }
+
+        static bool vkisinreg(ExpKind k)
+        {
+            return (ExpKind.Reloc <= (k) && (k) <= ExpKind.NonReloc);
+        }
 
         /*
         ** check whether, in an assignment to an upvalue/local variable, the
@@ -1391,25 +1413,25 @@ namespace TLua
             FuncState fs = ls.fs;
             int extra = fs.freereg;  /* eventual position to save local variable */
             bool conflict = false;
-            for (; lh; lh = lh.prev) {  /* check all previous assignments */
+            for (; lh != null; lh = lh.prev) {  /* check all previous assignments */
                 if (vkisindexed(lh.v.k)) {  /* assignment to table field? */
                     if (lh.v.k == ExpKind.IndexUp) {  /* is table an upvalue? */
-                        if (v.k == ExpKind.Upval && lh.v.u.ind.t == v.info) {
+                        if (v.k == ExpKind.Upval && lh.v.idxT == v.info) {
                             conflict = true;  /* table is the upvalue being assigned now */
                             lh.v.k = ExpKind.IndexString;
-                            lh.v.u.ind.t = extra;  /* assignment will use safe copy */
+                            lh.v.idxT = extra;  /* assignment will use safe copy */
                         }
                     }
                     else {  /* table is a register */
-                        if (v.k == ExpKind.Local && lh.v.u.ind.t == v.info) {
+                        if (v.k == ExpKind.Local && lh.v.idxT == v.info) {
                             conflict = true;  /* table is the local being assigned now */
-                            lh.v.u.ind.t = extra;  /* assignment will use safe copy */
+                            lh.v.idxT = extra;  /* assignment will use safe copy */
                         }
                         /* is index the local being assigned? */
                         if (lh.v.k == ExpKind.Indexed && v.k == ExpKind.Local &&
-                            lh.v.u.ind.idx == v.info) {
+                            lh.v.idxIdx == v.info) {
                             conflict = true;
-                            lh.v.u.ind.idx = extra;  /* previous assignment will use safe copy */
+                            lh.v.idxIdx = extra;  /* previous assignment will use safe copy */
                         }
                     }
                 }
@@ -1424,18 +1446,18 @@ namespace TLua
 
 
         void assignment(Lexer ls, LHS_assign lh, int nvars) {
-            ExpDesc e;
+            ExpDesc e = new ExpDesc();
             check_condition(ls, vkisvar(lh.v.k), "syntax error");
             if (testnext(ls, ',')) {  /* assignment . ',' suffixedexp assignment */
-                LHS_assign nv;
+                LHS_assign nv = new LHS_assign();
                 nv.prev = lh;
-                suffixedexp(ls, &nv.v);
+                suffixedexp(ls, nv.v);
                 if (!vkisindexed(nv.v.k))
                 {
-                    check_conflict(ls, lh, &nv.v);
+                    check_conflict(ls, lh, nv.v);
                 }
                 //luaE_incCcalls(ls.L);  /* control recursion depth */
-                assignment(ls, &nv, nvars + 1);
+                assignment(ls, nv, nvars + 1);
                 //ls.L.nCcalls--;
             }
             else {  /* assignment . '=' explist */
@@ -1472,7 +1494,7 @@ namespace TLua
         }
 
 
-        static void gotostat(Lexer ls, int pc)
+        void gotostat(Lexer ls, int pc)
         {
             int line = ls.linenumber;
             int g;
@@ -1541,11 +1563,11 @@ namespace TLua
             FuncState fs = ls.fs;
             int whileinit;
             int condexit;
-            BlockCnt bl;
+            BlockCnt bl = new BlockCnt();
             ls.ReadNext();  /* skip WHILE */
             whileinit = Code.getlabel(fs);
             condexit = cond(ls);
-            enterblock(fs, bl, 1);
+            enterblock(fs, bl, true);
             checknext(ls, TokenKind.Do);
             block(ls);
             Code.jumpto(fs, whileinit);
@@ -1560,12 +1582,13 @@ namespace TLua
             int condexit;
             FuncState fs = ls.fs;
             int repeat_init = Code.getlabel(fs);
-            BlockCnt bl1, bl2;
-            enterblock(fs, bl1, 1);  /* loop block */
-            enterblock(fs, bl2, 0);  /* scope block */
+            BlockCnt bl1 = new BlockCnt();
+            BlockCnt bl2 = new BlockCnt();
+            enterblock(fs, bl1, true);  /* loop block */
+            enterblock(fs, bl2, false);  /* scope block */
             ls.ReadNext();  /* skip REPEAT */
             statlist(ls);
-            check_match(ls, TK_UNTIL, TK_REPEAT, line);
+            check_match(ls, TokenKind.Until, TokenKind.Repeat, line);
             condexit = cond(ls);  /* read condition (inside scope block) */
             if (bl2.upval)
             {
@@ -1629,7 +1652,7 @@ namespace TLua
         */
         void forbody(Lexer ls, int base_, int line, int nvars, int kind) {
             /* forbody . DO block */
-            BlockCnt bl;
+            BlockCnt bl = new BlockCnt();
             FuncState fs = ls.fs;
             int prep, endfor;
             adjustlocalvars(ls, 3);  /* control variables */
@@ -1637,7 +1660,7 @@ namespace TLua
             prep = (kind == 0) ? Code.codeABx(fs, OpCode.FORPREP, base_, 0)
                  : (kind == 1) ? Code.codeABx(fs, OpCode.FORPREP1, base_, 0)
                  : Code.jump(fs);
-            enterblock(fs, bl, 0);  /* scope for declared variables */
+            enterblock(fs, bl, false);  /* scope for declared variables */
             adjustlocalvars(ls, nvars);
             Code.reserveregs(fs, nvars);
             block(ls);
@@ -1649,7 +1672,7 @@ namespace TLua
                 endfor = Code.codeABx(fs, OpCode.TFORLOOP, base_ + 2, 0);
             }
             else {
-                fixforjump(fs, prep, Code.getlabel(fs), 0);
+                fixforjump(fs, prep, Code.getlabel(fs), false);
                 endfor = (kind == 0) ? Code.codeABx(fs, OpCode.FORLOOP, base_, 0)
                                      : Code.codeABx(fs, OpCode.FORLOOP1, base_, 0);
             }
@@ -1677,7 +1700,7 @@ namespace TLua
                     basicfor = 0;  /* not a basic 'for' */
             }
             else {  /* default step = 1 */
-                Code.int(fs, fs.freereg, 1);
+                Code.integer(fs, fs.freereg, 1);
                 Code.reserveregs(fs, 1);
             }
             forbody(ls, base_, line, 1, basicfor);
@@ -1745,8 +1768,8 @@ namespace TLua
             checknext(ls, TokenKind.Then);
             if (ls.Tk.token == TokenKind.Goto || ls.Tk.token == TokenKind.Break) {
                 Code.goiffalse(ls.fs, v);  /* will jump to label if condition is true */
-                enterblock(fs, bl, 0);  /* must enter block before 'goto' */
-                if (ls.t.token == TokenKind.Goto)
+                enterblock(fs, bl, false);  /* must enter block before 'goto' */
+                if (ls.Tk.token == TokenKind.Goto)
                     gotostat(ls, v.t);  /* handle goto */
                 else
                     breakstat(ls, v.t);  /* handle break */
@@ -1760,14 +1783,14 @@ namespace TLua
             }
             else {  /* regular case (not goto/break) */
                 Code.goiftrue(ls.fs, v);  /* skip over block if condition is false */
-                enterblock(fs, bl, 0);
+                enterblock(fs, bl, false);
                 jf = v.f;
             }
             statlist(ls);  /* 'then' part */
             leaveblock(fs);
             if (ls.Tk.token == TokenKind.Else ||
                 ls.Tk.token == TokenKind.ElseIf)  /* followed by 'else'/'elseif'? */
-                Code.concat(fs, escapelist, Code.jump(fs));  /* must jump over it */
+                Code.concat(fs, ref escapelist, Code.jump(fs));  /* must jump over it */
             Code.patchtohere(fs, jf);
         }
 
@@ -1795,7 +1818,7 @@ namespace TLua
             FuncState fs = ls.fs;
             new_localvar(ls, str_checkname(ls));  /* new local variable */
             adjustlocalvars(ls, 1);  /* enter its scope */
-            body(ls, b, 0, ls.linenumber);  /* function created in next register */
+            body(ls, b, false, ls.linenumber);  /* function created in next register */
                                              /* debug information will only see the variable after this point! */
             getlocvar(fs, b.info).startpc = fs.pc;
         }
@@ -1837,16 +1860,25 @@ namespace TLua
 
         void funcstat(Lexer ls, int line) {
             /* funcstat . FUNCTION funcname body */
-            int ismethod;
             ExpDesc v = new ExpDesc();
             ExpDesc b = new ExpDesc();
             ls.ReadNext();  /* skip FUNCTION */
-            ismethod = funcname(ls, v);
+            var ismethod = funcname(ls, v);
             body(ls, b, ismethod, line);
             Code.storevar(ls.fs, v, b);
             Code.fixline(ls.fs, line);  /* definition "happens" in the first line */
         }
 
+
+        static uint getinstruction(FuncState fs, ExpDesc e)
+        {
+            return (fs.f.Codes[e.info]);
+        }
+
+        static void setinstruction(FuncState fs, ExpDesc e, uint inst)
+        {
+            fs.f.Codes[e.info] = inst;
+        }
 
         void exprstat(Lexer ls) {
             /* stat . func | assignment */
@@ -1859,8 +1891,8 @@ namespace TLua
             }
             else {  /* stat . func */
                 uint inst = getinstruction(fs, v.v);
-                check_condition(ls, v.v.k == TokenKind.Concat, "syntax error");
-                inst = Inst.SetArgC(inst, 1);  /* call statement uses no results */
+                check_condition(ls, v.v.k == ExpKind.Call, "syntax error");
+                inst = Inst.SetC(inst, 1);  /* call statement uses no results */
 
                 // setinstruction(fs, v.v, inst); TODO
             }
@@ -1879,8 +1911,8 @@ namespace TLua
                 nret = explist(ls, e);  /* optional return values */
                 if (hasmultret(e.k)) {
                     Code.setmultret(fs, e);
-                    if (e.k == VCALL && nret == 1) {  /* tail call? */
-                        SET_OPCODE(getinstruction(fs, e), OpCode.TAILCALL);
+                    if (e.k == ExpKind.Call && nret == 1) {  /* tail call? */
+                        setinstruction(fs,e, Inst.SetOpCode(getinstruction(fs, e), OpCode.TAILCALL));
                         Lexer.assert(Inst.A(getinstruction(fs, e)) == fs.nactvar);
                     }
                     first = fs.nactvar;
@@ -1904,7 +1936,7 @@ namespace TLua
         void statement(Lexer ls) {
             int line = ls.linenumber;  /* may be needed for error messages */
             enterlevel(ls);
-            switch (ls.t.token) {
+            switch (ls.Tk.token) {
                 case (TokenKind)';': {  /* stat . ';' (empty statement) */
                         ls.ReadNext();  /* skip ';' */
                         break;
@@ -1920,7 +1952,7 @@ namespace TLua
                 case TokenKind.Do: {  /* stat . DO block END */
                         ls.ReadNext();  /* skip DO */
                         block(ls);
-                        check_match(ls, TK_END, TK_DO, line);
+                        check_match(ls, TokenKind.End, TokenKind.Do, line);
                         break;
                     }
                 case TokenKind.For: {  /* stat . forstat */
@@ -2007,7 +2039,7 @@ namespace TLua
 
         internal Closure luaY_parser (LuaState L, ZIO z, string name, TokenKind firstchar)
         {
-            Lexer lex = new Lexer(z, name, firstchar);
+            Lexer lex = new Lexer(z, name, firstchar, new DynData());
             FuncState funcstate = new FuncState();
             Closure cl = new Closure(new Proto());  /* create main closure */
             //setclLvalue2s(L, L.top, cl);  /* anchor it (to avoid being collected) */

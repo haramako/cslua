@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace TLua
 {
+    using FuncState = Parser.FuncState;
+    using ExpDesc = Parser.ExpDesc;
+
     internal static class Code
     {
         internal const int MaxArgB = (1 << 8) - 1;
@@ -72,13 +75,29 @@ namespace TLua
             return ((e + 1) << 3) | ((int)x - 8);
         }
 
+
+        internal static void fixline(Parser.FuncState fs, int line)
+        {
+        }
+
+
+        internal static void dischargevars(Parser.FuncState fs, ExpDesc e)
+        {
+
+        }
+
+
+        static void exp2reg(FuncState fs, ExpDesc e, int reg)
+        {
+        }
+
         /*
         ** Ensures final expression result is in some (any) register
         ** and return that register.
         */
-        static int luaK_exp2anyreg(Parser.FuncState fs, Parser.ExpDesc e)
+        internal static int exp2anyreg(FuncState fs, ExpDesc e)
         {
-            luaK_dischargevars(fs, e);
+            dischargevars(fs, e);
             if (e.k == Parser.ExpKind.NonReloc)
             {  /* expression already has a register? */
                 if (!hasjumps(e))
@@ -93,7 +112,7 @@ namespace TLua
                     return e.info;
                 }
             }
-            luaK_exp2nextreg(fs, e);  /* otherwise, use next available register */
+            exp2nextreg(fs, e);  /* otherwise, use next available register */
             return e.info;
         }
 
@@ -103,13 +122,13 @@ namespace TLua
         ** Keys can be literal strings in the constant table or arbitrary
         ** values in registers.
         */
-        internal static void indexed(Parser.FuncState fs, Parser.ExpDesc t, Parser.ExpDesc k)
+        internal static void indexed(FuncState fs, ExpDesc t, ExpDesc k)
         {
             // Lexer.assert(!hasjumps(t) && (vkisinreg(t->k) || t->k == VUPVAL));
             if (t.k == Parser.ExpKind.Upval && !isKstr(fs, k))
             {
                 /* upvalue indexed by non string? */
-                luaK_exp2anyreg(fs, t);  /* put it in a register */
+                exp2anyreg(fs, t);  /* put it in a register */
             }
             t.idxT = t.info;  /* register or upvalue index */
             if (t.k == Parser.ExpKind.Upval)
@@ -129,7 +148,7 @@ namespace TLua
             }
             else
             {
-                t.idxIdx = luaK_exp2anyreg(fs, k);  /* register */
+                t.idxIdx = exp2anyreg(fs, k);  /* register */
                 t.k = Parser.ExpKind.Indexed;
             }
         }
@@ -215,5 +234,86 @@ namespace TLua
         internal static void finish(Parser.FuncState fs)
         {
         }
+
+        internal static void self(FuncState fs, ExpDesc e, ExpDesc key)
+        {
+
+        }
+
+        internal static void prefix(FuncState fs, Parser.UnOpr op, ExpDesc e, int line)
+        {
+
+        }
+
+        internal static void infix(FuncState fs, Parser.BinOpr op, ExpDesc v)
+        {
+
+        }
+
+        internal static void posfix(FuncState fs, Parser.BinOpr op, ExpDesc e1, ExpDesc e2, int line)
+        {
+
+        }
+
+        internal static void codeundef(FuncState fs, ExpDesc v)
+        {
+
+        }
+
+        internal static void setoneret(FuncState fs, ExpDesc e)
+        {
+
+        }
+
+        internal static void goiftrue(FuncState fs, ExpDesc e)
+        {
+
+        }
+
+        internal static void goiffalse(FuncState fs, ExpDesc e)
+        {
+
+        }
+
+        internal static int getlabel(FuncState fs)
+        {
+            return 0;
+        }
+
+        internal static void patchtohere(FuncState fs, int list)
+        {
+
+        }
+
+        internal static void patchtohere(FuncState fs, ExpDesc v)
+        {
+
+        }
+
+        internal static int jump(FuncState fs)
+        {
+            return 0;
+        }
+
+        internal static void patchlist(FuncState fs, int list, int target)
+        {
+
+        }
+
+        internal static void integer(FuncState fs, int reg, int i)
+        {
+
+        }
+
+        internal static void checkstack(FuncState fs, int n)
+        {
+
+        }
+
+        internal static void jumpto(FuncState fs, int target)
+        {
+            patchlist(fs, jump(fs), target);
+        }
+
     }
 }

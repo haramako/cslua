@@ -74,6 +74,9 @@ namespace TLua
         {
             internal TokenKind token;
             internal LuaValue seminfo;
+            internal float r;
+            internal int i;
+            internal string ts;
         }
 
 
@@ -89,9 +92,10 @@ namespace TLua
         ZIO z;  /* input stream */
         internal string source;  /* current source name */
         internal string envn;  /* environment variable name */
+        internal Parser.DynData dyd;
 
 
-        internal Lexer(ZIO z_, string source_, TokenKind firstchar)
+        internal Lexer(ZIO z_, string source_, TokenKind firstchar, Parser.DynData dyd_)
         {
             t.token = 0;
             current = firstchar;
@@ -102,6 +106,7 @@ namespace TLua
             lastline = 1;
             source = source_;
             envn = "_ENV";  /* get env name */
+            dyd = dyd_;
         }
 
 

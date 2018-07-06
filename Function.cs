@@ -36,7 +36,8 @@ namespace TLua
 		// Root用のダミー関数
 		public Function()
 		{
-			Upvals = new UpvalTag[0];
+            //Upvals = new UpvalTag[0];
+            Upvals = new List<UpvalTag>();
 		}
 
 		public Function(ZIO z, string filename)
@@ -82,16 +83,20 @@ namespace TLua
 			}
 
 			size = z.ReadInt();
-			Upvals = new UpvalTag[size];
-			for (var i = 0; i < size; i++) {
-				Upvals[i].InStack = z.ReadByte();
-				Upvals[i].Index = z.ReadByte();
+            //Upvals = new UpvalTag[size];
+            Upvals = new List<UpvalTag>(size);
+            for (var i = 0; i < size; i++) {
+                Upvals.Add(new UpvalTag { InStack = z.ReadByte(), Index = z.ReadByte() });
+				//Upvals[i].InStack = z.ReadByte();
+				//Upvals[i].Index = z.ReadByte();
 			}
 
 			size = z.ReadInt();
-			Protos = new Function[size];
+            //Protos = new Function[size];
+            Protos = new List<Function>(size);
 			for (var i = 0; i < size; i++) {
-				Protos[i] = new Function(z, Filename);
+                Protos.Add(new Function(z, filename));
+				//Protos[i] = new Function(z, Filename);
 			}
 
 			// read dubug info

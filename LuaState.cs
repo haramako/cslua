@@ -37,7 +37,7 @@ namespace TLua
 		public Closure(Function func)
 		{
 			Func = func;
-			Upvals = new Upval[Func.Upvals.Length];
+			Upvals = new Upval[Func.Upvals.Count];
 		}
 	}
 
@@ -86,12 +86,12 @@ namespace TLua
             var file = File.OpenRead(filename);
             var zio = new ZIO(file);
             var c = zio.ReadByte();
-            var lexer = new Lexer(this, zio, filename, (Lexer.TokenKind)c);
+            var lexer = new Lexer(zio, filename, (TokenKind)c, new Parser.DynData());
             for (;;)
             {
                 lexer.ReadNext();
                 Console.WriteLine("{0,12} {1}", lexer.Tk.token.ToString(), lexer.txtToken(lexer.Tk.token));
-                if (lexer.Tk.token == Lexer.TokenKind.Eos)
+                if (lexer.Tk.token == TokenKind.Eos)
                 {
                     break;
                 }
@@ -304,7 +304,7 @@ namespace TLua
 		Closure newClosure(Function func, int baseIdx, Closure enc)
 		{
 			var cl = new Closure(func);
-			for (int i = 0; i < func.Upvals.Length; i++) {
+			for (int i = 0; i < func.Upvals.Count; i++) {
 				var u = func.Upvals[i];
 				if (u.InStack != 0) {
 					cl.Upvals[i] = findUpval(baseIdx + u.Index);
