@@ -7,66 +7,66 @@ namespace TLua
 {
     static class TokenCharExtension
     {
-        internal static bool IsChar(this Lexer.TokenKind token)
+        internal static bool IsChar(this TokenKind token)
         {
             return token >= 0;
         }
 
-        internal static char c(this Lexer.TokenKind token)
+        internal static char c(this TokenKind token)
         {
             return (char)token;
         }
     }
 
+    /*
+    * WARNING: if you change the order of this enumeration,
+    * grep "ORDER RESERVED"
+    */
+    internal enum TokenKind
+    {
+        /* terminal symbols denoted by reserved words */
+        And = -38,
+        Break,
+        Do,
+        Else,
+        ElseIf,
+        End,
+        False,
+        For,
+        Function,
+        Goto,
+        If,
+        In,
+        Local,
+        Nil,
+        Not,
+        Or,
+        Repeat,
+        Return,
+        Then,
+        True,
+        Undef,
+        Until,
+        While,
+        IDiv,
+        Concat,
+        Dots,
+        Eq,
+        Ge,
+        Le,
+        Ne,
+        Shl,
+        Shr,
+        DbColon,
+        Eos,
+        Float,
+        Int,
+        Name,
+        String, // last element must be -1
+    }
+
     public class Lexer
     {
-        /*
-        * WARNING: if you change the order of this enumeration,
-        * grep "ORDER RESERVED"
-        */
-        internal enum TokenKind
-        {
-            /* terminal symbols denoted by reserved words */
-            And = -38,
-            Break,
-            Do,
-            Else,
-            ElseIf,
-            End,
-            False,
-            For,
-            Function,
-            Goto,
-            If,
-            In,
-            Local,
-            Nil,
-            Not,
-            Or,
-            Repeat,
-            Return,
-            Then,
-            True,
-            Undef,
-            Until,
-            While,
-            IDiv,
-            Concat,
-            Dots,
-            Eq,
-            Ge,
-            Le,
-            Ne,
-            Shl,
-            Shr,
-            DbColon,
-            Eos,
-            Float,
-            Int,
-            Name,
-            String, // last element must be -1
-        }
-
         /* number of reserved words */
         //#define NUM_RESERVED	(cast_int(TK_WHILE-FIRST_RESERVED + 1))
 
@@ -80,24 +80,20 @@ namespace TLua
         /* state of the lexer plus state of the parser when shared by all
            functions */
         TokenKind current;  /* current character (charint) */
-        int linenumber;  /* input line counter */
+        internal int linenumber;  /* input line counter */
         int lastline;  /* line of last token 'consumed' */
         Token t;  /* current token */
         Token lookahead;  /* look ahead token */
-        Function fs;  /* current function (parser) */
-        LuaState L;
+        internal Parser.FuncState fs;  /* current function (parser) */
         StringBuilder buff = new StringBuilder();
         ZIO z;  /* input stream */
-        Table h;  /* to avoid collection/reuse strings */
-        Parser.DynData dyd;  /* dynamic structures used by the parser */
-        string source;  /* current source name */
-        string envn;  /* environment variable name */
+        internal string source;  /* current source name */
+        internal string envn;  /* environment variable name */
 
 
-        internal Lexer(LuaState L_, ZIO z_, string source_, TokenKind firstchar)
+        internal Lexer(ZIO z_, string source_, TokenKind firstchar)
         {
             t.token = 0;
-            L = L_;
             current = firstchar;
             lookahead.token = TokenKind.Eos;  /* no look-ahead token */
             z = z_;
@@ -188,7 +184,7 @@ namespace TLua
             buff.Append((char)c);
         }
 
-        static string token2str(TokenKind token) 
+        internal static string token2str(TokenKind token) 
         {
             if( !token.IsChar())
             {
@@ -224,7 +220,7 @@ namespace TLua
             throw new ParserException(string.Format("{0} near {1}", msg, txtToken(token)));
         }
 
-        void syntaxerror(string msg)
+        internal void syntaxerror(string msg)
         {
             lexerror(msg, t.token);
         }
@@ -327,7 +323,7 @@ namespace TLua
         }
 
 
-        void assert(bool pred)
+        public static void assert(bool pred)
         {
             if( !pred)
             {
@@ -821,7 +817,7 @@ namespace TLua
             }
         }
 
-        TokenKind ReadLookahead()
+        internal TokenKind ReadLookahead()
         {
             assert(lookahead.token == TokenKind.Eos);
             lookahead.token = llex(out lookahead.seminfo);

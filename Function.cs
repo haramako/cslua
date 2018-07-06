@@ -1,11 +1,14 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace TLua
 {
 	public struct UpvalTag
 	{
+        public string Name;
 		public byte InStack;
 		public byte Index;
 	}
@@ -22,9 +25,13 @@ namespace TLua
 
 		public uint[] Codes;
 		public LuaValue[] Consts;
-		public UpvalTag[] Upvals;
-		public Function[] Protos;
+		// public UpvalTag[] Upvals; TODO: あとで作成時用のFunctionと利用時のFunctionにわける
+        public List<UpvalTag> Upvals;
+		// public Function[] Protos;
+        public List<Function> Protos = new List<Function>();
 		public uint[] DebugInfos;
+
+        internal List<Parser.LocVar> LocalVars = new List<Parser.LocVar>();
 
 		// Root用のダミー関数
 		public Function()
@@ -120,6 +127,13 @@ namespace TLua
 			}
 			return sb.ToString();
 		}
+
+        // TODO: 配列を毎回作り直しているので、最適化する
+        public int AddConst(LuaValue s)
+        {
+            Consts = Consts.Concat(new LuaValue[] { s }).ToArray();
+            return Consts.Length-1;
+        }
 
 	}
 

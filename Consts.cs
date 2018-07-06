@@ -152,6 +152,7 @@ namespace TLua
 		NOT = 27,
 		LEN = 28,
 		CONCAT = 29,
+        CLOSE = 47, // TODO: あとで番号を整える
 		JMP = 30,
 		EQ = 31,
 		LT = 32,
