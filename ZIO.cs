@@ -17,6 +17,15 @@ namespace TLua
 			return r_.ReadBytes(size);
 		}
 
+        public int ReadChar()
+        {
+            if (r_.PeekChar() == -1) {
+                return -1;
+            } else {
+                return r_.ReadChar();
+            }
+        }
+
 		public byte ReadByte()
 		{
 			return r_.ReadByte();

@@ -84,7 +84,7 @@ namespace TLua
         /* number of reserved words */
         //#define NUM_RESERVED	(cast_int(TK_WHILE-FIRST_RESERVED + 1))
 
-        struct Token
+        internal struct Token
         {
             internal TokenChar token;
             internal LuaValue seminfo;
@@ -108,31 +108,80 @@ namespace TLua
         string envn;  /* environment variable name */
 
 
-        public Lexer(LuaState L)
+        internal Lexer(LuaState L_, ZIO z_, string source_, TokenChar firstchar)
         {
+            t.token = 0;
+            L = L_;
+            current = firstchar;
+            lookahead.token = TokenKind.Eos.tc();  /* no look-ahead token */
+            z = z_;
+            fs = null;
+            linenumber = 1;
+            lastline = 1;
+            source = source_;
+            envn = "_ENV";  /* get env name */
         }
 
 
         void next() {
-            current = (TokenChar)z.ReadByte();
+            var c = z.ReadChar();
+            if( c == -1)
+            {
+                current = TokenKind.Eos.tc();
+            }
+            else
+            {
+                current = (TokenChar)c;
+            }
         }
 
         bool currIsNewline() {
             return (char)current == '\n' || (char)current == '\r';
         }
 
-        static string[] tokens = new string[]
+        static Dictionary<string, TokenKind> tokenDict = new Dictionary<string, TokenKind>
         {
-            "and", "break", "do", "else", "elseif",
-            "end", "false", "for", "function", "goto", "if",
-            "in", "local", "nil", "not", "or", "repeat",
-            "return", "then", "true", "undef", "until", "while",
-            "//", "..", "...", "==", ">=", "<=", "~=",
-            "<<", ">>", "::", "<eof>",
-            "<number>", "<integer>", "<name>", "<string>"
+            { "and", TokenKind.And },
+            { "break",TokenKind.Break },
+            { "do",TokenKind.Do },
+            { "else",TokenKind.Else },
+            { "elseif",TokenKind.ElseIf },
+            { "end",TokenKind.End },
+            { "false",TokenKind.False },
+            { "for",TokenKind.For },
+            { "function",TokenKind.Function },
+            { "goto",TokenKind.Goto },
+            { "if",TokenKind.If },
+            { "in",TokenKind.In },
+            { "local",TokenKind.Local },
+            { "nil",TokenKind.Nil },
+            { "not",TokenKind.Not },
+            { "or",TokenKind.Or },
+            { "repeat",TokenKind.Repeat },
+            { "return",TokenKind.Return },
+            { "then",TokenKind.Then },
+            { "true",TokenKind.True },
+            { "undef",TokenKind.Undef },
+            { "until",TokenKind.Until },
+            { "while",TokenKind.While },
+            { "//",TokenKind.IDiv },
+            { "..",TokenKind.Concat },
+            { "...",TokenKind.Dots },
+            { "==",TokenKind.Eq },
+            { ">=",TokenKind.Ge },
+            { "<=",TokenKind.Le },
+            { "~=",TokenKind.Ne },
+            { "<<",TokenKind.Shl },
+            { ">>",TokenKind.Shr },
+            { "::",TokenKind.DbColon },
+            { "<eof>",TokenKind.Eos },
+            { "<number>",TokenKind.Float },
+            { "<integer>",TokenKind.Int },
+            { "<name>",TokenKind.Name },
+            { "<string>", TokenKind.String },
         };
 
-        static Dictionary<string, int> tokenDict;
+        static Dictionary<TokenKind, string> tokenKindDict = tokenDict.ToDictionary(kv => kv.Value, kv => kv.Key);
 
         void saveAndNext()
         {
@@ -153,18 +202,11 @@ namespace TLua
             buff.Append((char)c);
         }
 
-        static Lexer()
+        static string token2str(TokenChar token) 
         {
-            int i = 0;
-            tokenDict = tokens.ToDictionary(t => t, t => i++);
-        }
-
-
-        string token2str(TokenChar token) 
-        {
-            if( token.IsChar())
+            if( !token.IsChar())
             {
-                return tokens[(int)token.kind()-1];
+                return tokenKindDict[token.kind()];
             }
             else
             {
@@ -173,9 +215,9 @@ namespace TLua
         }
 
 
-        string txtToken (TokenChar token)
+        internal string txtToken (TokenChar token)
         {
-            switch ((TokenKind)token)
+            switch (token.kind())
             {
                 case TokenKind.Name:
                 case TokenKind.String:
@@ -216,20 +258,6 @@ namespace TLua
             linenumber++;
         }
 
-
-        void setinput(LuaState L_, ZIO z_, string source_, TokenChar firstchar)
-        {
-            t.token = 0;
-            L = L_;
-            current = firstchar;
-            lookahead.token = TokenKind.Eos.tc();  /* no look-ahead token */
-            z = z_;
-            fs = null; 
-            linenumber = 1;
-            lastline = 1;
-            source = source_;
-            envn = "_ENV";  /* get env name */
-        }
 
         /*
         ** =======================================================
@@ -747,9 +775,13 @@ namespace TLua
                                     saveAndNext();
                                 } while (islalnum((char)current));
                                 var ts = buff.ToString();
-                                seminfo = new LuaValue(tc);
-                                if (isreserved(ts))  /* reserved word? */
-                                    return ts->extra - 1 + FIRST_RESERVED;
+                                seminfo = new LuaValue(ts);
+                                TokenKind kind;
+                                if (tokenDict.TryGetValue(ts, out kind))
+                                {
+                                    /* reserved word? */
+                                    return kind.tc();
+                                }
                                 else
                                 {
                                     return TokenKind.Name.tc();
@@ -766,6 +798,20 @@ namespace TLua
             }
         }
 
+        static bool islalpha(char c)
+        {
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+        }
+
+        static bool islalnum(char c)
+        {
+            return islalpha(c) || Char.IsDigit(c);
+        }
+
+        static bool isreserved(string t)
+        {
+            return tokenDict.ContainsKey(t);
+        }
 
         public void ReadNext()
         {
@@ -781,6 +827,13 @@ namespace TLua
             }
         }
 
+        internal Token Tk
+        {
+            get
+            {
+                return t;
+            }
+        }
 
         TokenChar ReadLookahead()
         {

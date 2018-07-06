@@ -96,7 +96,7 @@ namespace TLua
         {
             Function f;  /* current function header */
             FuncState prev;  /* enclosing function */
-            Lexer.LexState ls;  /* lexical state */
+            Lexer ls;  /* lexical state */
             //BlockCnt bl;  /* chain of current blocks */
             int pc;  /* next position to code (equivalent to 'ncode') */
             int lasttarget;   /* 'label' of last 'jump label' */

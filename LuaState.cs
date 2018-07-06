@@ -81,7 +81,24 @@ namespace TLua
 			LuaLib.StdTable.Bind(this);
 		}
 
-		public void LoadFile(string filename)
+        public void Parse(string filename)
+        {
+            var file = File.OpenRead(filename);
+            var zio = new ZIO(file);
+            var c = zio.ReadByte();
+            var lexer = new Lexer(this, zio, filename, (Lexer.TokenChar)c);
+            for (;;)
+            {
+                lexer.ReadNext();
+                Console.WriteLine("{0}", lexer.txtToken(lexer.Tk.token));
+                if (lexer.Tk.token.kind() == Lexer.TokenKind.Eos)
+                {
+                    break;
+                }
+            }
+        }
+
+        public void LoadFile(string filename)
 		{
 			var p = Process.Start("luac53.exe", "-o luac.out "+ filename );
 			p.WaitForExit();

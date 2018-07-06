@@ -29,6 +29,10 @@ namespace TLua
 					continue;
 				}
 				var lua = new LuaState();
+
+                lua.Parse(arg);
+                break;
+
 				lua.LoadFile(arg);
 				lua.EnableTrace = trace;
 				lua.Run();
