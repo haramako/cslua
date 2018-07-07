@@ -74,7 +74,35 @@ namespace TLua
 			}
 		}
 
-		public static string Inspect(uint code)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool K(uint code)
+        {
+            return false; // TODO
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int sJ(uint code)
+        {
+            return 0; // TODO
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool M(uint code)
+        {
+            return false; // TODO
+        }
+
+        public static uint CreateAx(OpCode op, int ax)
+        {
+            return 0; // TODO
+        }
+
+        public static uint CreateABCk(OpCode op, int a, int b, int c, bool k)
+        {
+            return 0; // TODO
+        }
+
+        public static string Inspect(uint code)
 		{
 			var opcode = Inst.OpCode(code);
 			var info = OpDatabase.Data[(int)opcode];
@@ -101,6 +129,11 @@ namespace TLua
             return inst;
         }
 
+        public static uint SetA(uint inst, int v)
+        {
+            return inst;
+        }
+
         public static uint SetB(uint inst, int v)
         {
             return inst;
@@ -114,6 +147,26 @@ namespace TLua
         public static uint SetBx(uint inst, int v)
         {
             return inst;
+        }
+
+        public static uint SetSj(uint inst, int v)
+        {
+            return inst;
+        }
+
+        public static uint SetM(uint inst, bool v)
+        {
+            return inst;
+        }
+
+        public static uint SetK(uint inst, bool v)
+        {
+            return inst;
+        }
+
+        public static bool IsTMode(OpCode op)
+        {
+            return false; // TODO: testTMode
         }
     }
 
@@ -194,9 +247,26 @@ namespace TLua
         PREPVARARG,
         FORPREP1,
         FORLOOP1,
+        GETI,
+        GETFIELD,
+        SETI,
+        SETFIELD,
+        RETURN0,
+        RETURN1,
+        SHLI,
+        SHRI,
+        AND,
+        ADDI,
+        BANDK,
+        ISDEF,
+        EQI,
+        EQK,
+        LTI,
+        GEI,
+        GTI,
     }
 
-	public class OpDatabase
+    public class OpDatabase
 	{
 		public static readonly OpInfo[] Data = new OpInfo[]{
 			new OpInfo("MOVE", OpType.AB),

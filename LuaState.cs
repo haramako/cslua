@@ -96,7 +96,7 @@ namespace TLua
             var file = File.OpenRead(filename);
             var zio = new ZIO(file);
             var c = zio.ReadByte();
-            var lexer = new Parsing.Lexer(zio, filename, (Parsing.TokenKind)c, new Parsing.Parser.DynData());
+            var lexer = new Parsing.Lexer(zio, filename, (Parsing.TokenKind)c, new Parsing.DynData());
             for (;;)
             {
                 lexer.ReadNext();

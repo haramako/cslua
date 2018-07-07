@@ -9,116 +9,151 @@ namespace TLua.Parsing
 {
     using Proto = Function;
 
-    public class Parser
+    internal enum ExpKind
     {
-        internal enum ExpKind {
-            Void,
-            Nil,
-            True,
-            False,  /* constant false */
-            Const,  /* constant in 'k'; info = index of constant in 'k' */
-            Float,  /* floating constant; nval = numerical float value */
-            Int,  /* integer constant; nval = numerical integer value */
-            NonReloc,  /* expression has its value in a fixed register;
+        Void,
+        Nil,
+        True,
+        False,  /* constant false */
+        Const,  /* constant in 'k'; info = index of constant in 'k' */
+        Float,  /* floating constant; nval = numerical float value */
+        Int,  /* integer constant; nval = numerical integer value */
+        NonReloc,  /* expression has its value in a fixed register;
                  info = result register */
-            Local,  /* local variable; info = local register */
-            Upval,  /* upvalue variable; info = index of upvalue in 'upvalues' */
-            Indexed,  /* indexed variable;
+        Local,  /* local variable; info = local register */
+        Upval,  /* upvalue variable; info = index of upvalue in 'upvalues' */
+        Indexed,  /* indexed variable;
                 ind.t = table register;
                 ind.idx = key's R index */
-            IndexUp,  /* indexed upvalue;
+        IndexUp,  /* indexed upvalue;
                 ind.t = table upvalue;
                 ind.idx = key's K index */
-            IndexInt, /* indexed variable with constant integer;
+        IndexInt, /* indexed variable with constant integer;
                 ind.t = table register;
                 ind.idx = key's value */
-            IndexString, /* indexed variable with literal string;
+        IndexString, /* indexed variable with literal string;
                 ind.t = table register;
                 ind.idx = key's K index */
-            Jump,  /* expression is a test/comparison;
+        Jump,  /* expression is a test/comparison;
             info = pc of corresponding jump instruction */
-            Reloc,  /* expression can put result in any register;
+        Reloc,  /* expression can put result in any register;
               info = instruction pc */
-            Call,  /* expression is a function call; info = instruction pc */
-            VarArg,  /* vararg expression; info = instruction pc */
-            Undef  /* the 'undef' "expression" */
-        }
+        Call,  /* expression is a function call; info = instruction pc */
+        VarArg,  /* vararg expression; info = instruction pc */
+        Undef  /* the 'undef' "expression" */
+    }
 
+    internal class ExpDesc
+    {
+        internal ExpKind k;
+        internal int ival;
+        internal double nval;
+        internal int info;  /* for generic use */
+        internal int indIdx; /* index (R or "long" K) */
+        internal int indT; /* table (register or upvalue) */
+        internal int t;  /* patch list of 'exit when true' */
+        internal int f;  /* patch list of 'exit when false' */
+    }
+
+    /* description of active local variable */
+    internal struct VarDesc
+    {
+        internal short idx;  /* variable index in stack */
+    }
+
+
+    /* description of pending goto statements and label statements */
+    internal class LabelDesc
+    {
+        internal string name;  /* label identifier */
+        internal int pc;  /* position in code */
+        internal int line;  /* line where it appeared */
+        internal int nactvar;  /* local level where it appears in current block */
+    }
+
+    /* list of labels or gotos */
+    internal class LabelList
+    {
+        internal List<LabelDesc> arr = new List<LabelDesc>();  /* array */
+        internal int n;  /* number of entries in use */
+        internal int size;  /* array size */
+    }
+
+
+    /* dynamic structures used by the parser */
+    internal class DynData
+    {
+        internal List<VarDesc> arr = new List<VarDesc>();
+        internal int n;
+        internal int size;
+        internal LabelList gt = new LabelList();  /* list of pending gotos */
+        internal LabelList label = new LabelList();   /* list of active labels */
+    }
+
+    /* control of blocks */
+    //struct BlockCnt;  /* defined in lparser.c */
+
+
+    /* state needed to generate code for a given function */
+    internal class FuncState
+    {
+        internal Function f;  /* current function header */
+        internal FuncState prev;  /* enclosing function */
+        internal Lexer ls;  /* lexical state */
+        internal BlockCnt bl;  /* chain of current blocks */
+        internal int pc;  /* next position to code (equivalent to 'ncode') */
+        internal int lasttarget;   /* 'label' of last 'jump label' */
+        internal int previousline;  /* last line that was saved in 'lineinfo' */
+        internal int nk;  /* number of elements in 'k' */
+        internal int np;  /* number of elements in 'p' */
+        internal int nabslineinfo;  /* number of elements in 'abslineinfo' */
+        internal int firstlocal;  /* index of first local var (in Dyndata array) */
+        internal short nlocvars;  /* number of elements in 'f.locvars' */
+        internal int nactvar;  /* number of active local variables */
+        internal byte nups;  /* number of upvalues */
+        internal int freereg;  /* first free register */
+        internal byte iwthabs;  /* instructions issued since last absolute line info */
+    }
+
+    /*
+    ** nodes for block list (list of active blocks)
+    */
+    internal class BlockCnt
+    {
+        internal BlockCnt previous;  /* chain */
+        internal int firstlabel;  /* index of first label in this block */
+        internal int firstgoto;  /* index of first pending goto in this block */
+        internal int brks;  /* list of break jumps in this block */
+        internal bool brkcls;  /* true if some 'break' needs to close upvalues */
+        internal int nactvar;  /* # active locals outside the block */
+        internal bool upval;  /* true if some variable in the block is an upvalue */
+        internal bool isloop;  /* true if 'block' is a loop */
+    }
+
+    internal enum UnOpr
+    {
+        MINUS, BNOT, NOT, LEN, NOUNOPR
+    }
+
+    internal enum BinOpr
+    {
+        ADD, SUB, MUL, MOD, POW,
+        DIV,
+        IDIV,
+        BAND, BOR, BXOR,
+        SHL, SHR,
+        CONCAT,
+        EQ, LT, LE,
+        NE, GT, GE,
+        AND, OR,
+        NOBINOPR
+    }
+
+    public class Parser
+    {
         //#define vkisvar(k)	(VLOCAL <= (k) && (k) <= VINDEXSTR)
         //#define vkisindexed(k)	(VINDEXED <= (k) && (k) <= VINDEXSTR)
         //#define vkisinreg(k)	((k) == VNONRELOC || (k) == VLOCAL)
-
-        internal class ExpDesc
-        {
-            internal ExpKind k;
-            internal int ival;
-            internal float nval;
-            internal int info;  /* for generic use */
-            internal int idxIdx; /* index (R or "long" K) */
-            internal int idxT; /* table (register or upvalue) */
-            internal int t;  /* patch list of 'exit when true' */
-            internal int f;  /* patch list of 'exit when false' */
-        }
-
-        /* description of active local variable */
-        internal struct VarDesc
-        {
-            internal short idx;  /* variable index in stack */
-        }
-
-
-        /* description of pending goto statements and label statements */
-        internal class LabelDesc
-        {
-            internal string name;  /* label identifier */
-            internal int pc;  /* position in code */
-            internal int line;  /* line where it appeared */
-            internal int nactvar;  /* local level where it appears in current block */
-        }
-
-        /* list of labels or gotos */
-        internal class LabelList
-        {
-            internal List<LabelDesc> arr = new List<LabelDesc>();  /* array */
-            internal int n;  /* number of entries in use */
-            internal int size;  /* array size */
-        }
-
-
-        /* dynamic structures used by the parser */
-        internal class DynData
-        {
-            internal List<VarDesc> arr = new List<VarDesc>();
-            internal int n;
-            internal int size;
-            internal LabelList gt = new LabelList();  /* list of pending gotos */
-            internal LabelList label = new LabelList();   /* list of active labels */
-        }
-
-        /* control of blocks */
-        //struct BlockCnt;  /* defined in lparser.c */
-
-
-        /* state needed to generate code for a given function */
-        internal class FuncState
-        {
-            internal Function f;  /* current function header */
-            internal FuncState prev;  /* enclosing function */
-            internal Lexer ls;  /* lexical state */
-            internal BlockCnt bl;  /* chain of current blocks */
-            internal int pc;  /* next position to code (equivalent to 'ncode') */
-            internal int lasttarget;   /* 'label' of last 'jump label' */
-            internal int previousline;  /* last line that was saved in 'lineinfo' */
-            internal int nk;  /* number of elements in 'k' */
-            internal int np;  /* number of elements in 'p' */
-            internal int nabslineinfo;  /* number of elements in 'abslineinfo' */
-            internal int firstlocal;  /* index of first local var (in Dyndata array) */
-            internal short nlocvars;  /* number of elements in 'f.locvars' */
-            internal int nactvar;  /* number of active local variables */
-            internal byte nups;  /* number of upvalues */
-            internal int freereg;  /* first free register */
-            internal byte iwthabs;  /* instructions issued since last absolute line info */
-        }
 
 
         public Parser()
@@ -143,21 +178,6 @@ namespace TLua.Parsing
             return a == b;
         }
 
-
-        /*
-        ** nodes for block list (list of active blocks)
-        */
-        internal class BlockCnt
-        {
-            internal BlockCnt previous;  /* chain */
-            internal int firstlabel;  /* index of first label in this block */
-            internal int firstgoto;  /* index of first pending goto in this block */
-            internal int brks;  /* list of break jumps in this block */
-            internal bool brkcls;  /* true if some 'break' needs to close upvalues */
-            internal int nactvar;  /* # active locals outside the block */
-            internal bool upval;  /* true if some variable in the block is an upvalue */
-            internal bool isloop;  /* true if 'block' is a loop */
-        }
 
         /*
         ** prototypes for recursive non-terminal functions
@@ -275,7 +295,7 @@ namespace TLua.Parsing
             return ts;
         }
 
-        const int NoJump = -1;
+        internal const int NoJump = -1;
 
         void init_exp(ExpDesc e, ExpKind k, int i)
         {
@@ -875,7 +895,7 @@ namespace TLua.Parsing
         }
 
 
-        const int LFIELDS_PER_FLUSH = 50;
+        internal const int LFIELDS_PER_FLUSH = 50;
 
         void closelistfield(FuncState fs, ConsControl cc)
         {
@@ -1262,24 +1282,6 @@ namespace TLua.Parsing
             }
         }
 
-        internal enum UnOpr {
-            MINUS, BNOT, NOT, LEN, NOUNOPR
-        }
-
-        internal enum BinOpr
-        {
-            ADD, SUB, MUL, MOD, POW,
-            DIV,
-            IDIV,
-            BAND, BOR, BXOR,
-            SHL, SHR,
-            CONCAT,
-            EQ, LT, LE,
-            NE, GT, GE,
-            AND, OR,
-            NOBINOPR
-        }
-
         BinOpr getbinopr(TokenKind op) {
             switch (op) {
                 case (TokenKind)'+': return BinOpr.ADD;
@@ -1434,22 +1436,22 @@ namespace TLua.Parsing
             for (; lh != null; lh = lh.prev) {  /* check all previous assignments */
                 if (vkisindexed(lh.v.k)) {  /* assignment to table field? */
                     if (lh.v.k == ExpKind.IndexUp) {  /* is table an upvalue? */
-                        if (v.k == ExpKind.Upval && lh.v.idxT == v.info) {
+                        if (v.k == ExpKind.Upval && lh.v.indT == v.info) {
                             conflict = true;  /* table is the upvalue being assigned now */
                             lh.v.k = ExpKind.IndexString;
-                            lh.v.idxT = extra;  /* assignment will use safe copy */
+                            lh.v.indT = extra;  /* assignment will use safe copy */
                         }
                     }
                     else {  /* table is a register */
-                        if (v.k == ExpKind.Local && lh.v.idxT == v.info) {
+                        if (v.k == ExpKind.Local && lh.v.indT == v.info) {
                             conflict = true;  /* table is the local being assigned now */
-                            lh.v.idxT = extra;  /* assignment will use safe copy */
+                            lh.v.indT = extra;  /* assignment will use safe copy */
                         }
                         /* is index the local being assigned? */
                         if (lh.v.k == ExpKind.Indexed && v.k == ExpKind.Local &&
-                            lh.v.idxIdx == v.info) {
+                            lh.v.indIdx == v.info) {
                             conflict = true;
-                            lh.v.idxIdx = extra;  /* previous assignment will use safe copy */
+                            lh.v.indIdx = extra;  /* previous assignment will use safe copy */
                         }
                     }
                 }
@@ -1888,12 +1890,12 @@ namespace TLua.Parsing
         }
 
 
-        static uint getinstruction(FuncState fs, ExpDesc e)
+        internal static uint getinstruction(FuncState fs, ExpDesc e)
         {
             return (fs.f.Codes[e.info]);
         }
 
-        static void setinstruction(FuncState fs, ExpDesc e, uint inst)
+        internal static void setinstruction(FuncState fs, ExpDesc e, uint inst)
         {
             fs.f.Codes[e.info] = inst;
         }

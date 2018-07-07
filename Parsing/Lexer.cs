@@ -88,15 +88,15 @@ namespace TLua.Parsing
         int lastline;  /* line of last token 'consumed' */
         Token t = new Token();  /* current token */
         Token lookahead = new Token();  /* look ahead token */
-        internal Parser.FuncState fs;  /* current function (parser) */
+        internal FuncState fs;  /* current function (parser) */
         StringBuilder buff = new StringBuilder();
         ZIO z;  /* input stream */
         internal string source;  /* current source name */
         internal string envn;  /* environment variable name */
-        internal Parser.DynData dyd;
+        internal DynData dyd;
 
 
-        internal Lexer(ZIO z_, string source_, TokenKind firstchar, Parser.DynData dyd_)
+        internal Lexer(ZIO z_, string source_, TokenKind firstchar, DynData dyd_)
         {
             t.token = 0;
             current = firstchar;

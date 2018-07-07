@@ -23,8 +23,9 @@ namespace TLua
 		public bool HasVarArg;
 		public int MaxStackSize;
 
-		public uint[] Codes;
-		public LuaValue[] Consts = new LuaValue[0];
+		//public uint[] Codes;
+        public List<uint> Codes = new List<uint>();
+        public LuaValue[] Consts = new LuaValue[0];
 		// public UpvalTag[] Upvals; TODO: あとで作成時用のFunctionと利用時のFunctionにわける
         public List<UpvalTag> Upvals;
 		// public Function[] Protos;
@@ -51,9 +52,10 @@ namespace TLua
 			MaxStackSize = z.ReadByte();
 
 			var size = z.ReadInt();
-			Codes = new uint[size];
+            Codes = new List<uint>(size);// new uint[size];
 			for (var i = 0; i < size; i++) {
-				Codes[i] = (uint)z.ReadInt();
+                //Codes[i] = (uint)z.ReadInt();
+                Codes.Add((uint)z.ReadInt());
 			}
 
 			size = z.ReadInt();
