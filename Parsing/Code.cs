@@ -17,9 +17,11 @@ namespace TLua.Parsing
         internal const int MaxArgB = (1 << 8) - 1;
         internal const int MaxArgBx = (1 << 16) - 1;
         internal const int MaxArgC = (1 << 8) - 1;
+        internal const int MaxArgSj = (1 << 24) - 1;
         internal const int MaxIndexRk = MaxArgB;
         internal const int OffsetSbx = MaxArgBx >> 1;
         internal const int OffsetSc = MaxArgC >> 1;
+        internal const int OffsetSj = MaxArgSj >> 1;
 
 
         /* semantic error */
@@ -643,12 +645,36 @@ namespace TLua.Parsing
 
         internal static int codeK(FuncState fs, int reg, int k)
         {
-            return 0; // TODO
+            if (k <= MaxArgBx)
+                return codeABx(fs, OpCode.LOADK, reg, k);
+            else
+            {
+                int p = codeABx(fs, OpCode.LOADKX, reg, 0);
+                codeextraarg(fs, k);
+                return p;
+            }
         }
 
+        /*
+        ** Format and emit an 'iAsBx' instruction.
+        */
+        internal static int codeAsBx(FuncState fs, OpCode o, int a, int bc)
+        {
+            int b = bc + OffsetSbx;
+            //Lexer.assert(getOpMode(o) == iAsBx);
+            Lexer.assert(a <= MaxArgA && b <= MaxArgBx);
+            return code(fs, Inst.CreateABx(o, a, b));
+        }
+
+        /*
+        ** Format and emit an 'iABC' instruction. (Assertions check consistency
+        ** of parameters versus opcode.)
+        */
         internal static int codeABCk(FuncState fs, OpCode o, int a, int b, int c, bool k)
         {
-            return 0; // TODO
+            //Lexer.assert(getOpMode(o) == iABC);
+            Lexer.assert(a <= MaxArgA && b <= MaxArgB && c <= MaxArgC );
+            return code(fs, Inst.CreateABCk(o, a, b, c, k));
         }
 
         internal static int codeABC(FuncState fs, OpCode o, int a, int b, int c)
@@ -656,14 +682,15 @@ namespace TLua.Parsing
             return codeABCk(fs, o, a, b, c, false);
         }
 
-        internal static int codeABsC(FuncState fs, OpCode o, int a, int b, int sc, bool k)
+        internal static int codeABsC(FuncState fs, OpCode o, int a, int b, int c, bool k)
         {
-            return 0;
+            return codeABCk(fs, o, a, b, (c + OffsetSc), k);
         }
 
-        internal static int codeABRK(FuncState fs, OpCode o, int a, int b, ExpDesc rk)
+        internal static void codeABRK(FuncState fs, OpCode o, int a, int b, ExpDesc ec)
         {
-            return 0;
+            bool k = exp2RK(fs, ec);
+            codeABCk(fs, o, a, b, ec.info, k);
         }
 
         internal static int codeABx(FuncState fs, OpCode o, int a, int bc)
@@ -926,6 +953,7 @@ namespace TLua.Parsing
         {
             int pcPos = getjumpcontrol(fs, e.info);
             uint pc = fs.f.Codes[pcPos];
+            Console.WriteLine(Inst.Inspect(pc));
             Lexer.assert(Inst.IsTMode(Inst.OpCode(pc)) && Inst.OpCode(pc) != OpCode.TESTSET &&
                                                      Inst.OpCode(pc) != OpCode.TEST);
             pc = Inst.SetK(pc, !Inst.K(pc));
@@ -1146,13 +1174,13 @@ namespace TLua.Parsing
         static bool floatI(double f, ref int fi)
         {
             fi = fi + 0;
-            return (Math.Floor(f) == f && fitsBx(ref fi));
+            return (Math.Floor(f) == f && fitsBx(fi));
         }
 
         /*
         ** Check whether 'i' can be stored in an 'sBx' operand.
         */
-        static bool fitsBx(ref int i)
+        static bool fitsBx(int i)
         {
             return (-OffsetSbx <= i && i <= MaxArgBx - OffsetSbx);
         }
@@ -1736,37 +1764,137 @@ namespace TLua.Parsing
 
         internal static void codeundef(FuncState fs, ExpDesc v)
         {
-
+            normalizeindexed(fs, v);
+            v.info = codeABC(fs, OpCode.UNDEF, v.indT, v.indIdx, 0);
+            v.k = ExpKind.Reloc;
         }
 
+        /*
+        ** Fix an expression to return one result.
+        ** If expression is not a multi-ret expression (function call or
+        ** vararg), it already returns one result, so nothing needs to be done.
+        ** Function calls become VNONRELOC expressions (as its result comes
+        ** fixed in the base register of the call), while vararg expressions
+        ** become VRELOC (as OP_VARARG puts its results where it wants).
+        ** (Calls are created returning one result, so that does not need
+        ** to be fixed.)
+        */
         internal static void setoneret(FuncState fs, ExpDesc e)
         {
-
+            if (e.k == ExpKind.Call)
+            {  /* expression is an open function call? */
+               /* already returns 1 value */
+                Lexer.assert(Inst.C(Parser.getinstruction(fs, e)) == 2);
+                e.k = ExpKind.NonReloc;  /* result has fixed position */
+                e.info = Inst.A(Parser.getinstruction(fs, e));
+            }
+            else if (e.k == ExpKind.VarArg)
+            {
+                var i = Inst.SetC(Parser.getinstruction(fs, e), 2);
+                e.k = ExpKind.Reloc;  /* can relocate its simple result */
+                Parser.setinstruction(fs, e, i);
+            }
         }
 
+        /*
+        ** Emit code to go through if 'e' is true, jump otherwise.
+        */
         internal static void goiftrue(FuncState fs, ExpDesc e)
         {
+            int pc;  /* pc of new jump */
+            dischargevars(fs, e);
+            switch (e.k)
+            {
+                case ExpKind.Jump:
+                    {  /* condition? */
+                        negatecondition(fs, e);  /* jump when it is false */
+                        pc = e.info;  /* save jump position */
+                        break;
+                    }
+                case ExpKind.Const:
+                case ExpKind.Float:
+                case ExpKind.Int:
+                case ExpKind.True:
+                    {
+                        pc = Parser.NoJump;  /* always true; do nothing */
+                        break;
+                    }
+                default:
+                    {
+                        pc = jumponcond(fs, e, false);  /* jump when false */
+                        break;
+                    }
+            }
+            concat(fs, ref e.f, pc);  /* insert new jump in false list */
+            patchtohere(fs, e.t);  /* true list jumps to here (to go through) */
+            e.t = Parser.NoJump;
+        }
 
+        /*
+        ** Emit instruction to jump if 'e' is 'cond' (that is, if 'cond'
+        ** is true, code will jump if 'e' is true.) Return jump position.
+        ** Optimize when 'e' is 'not' something, inverting the condition
+        ** and removing the 'not'.
+        */
+        static int jumponcond(FuncState fs, ExpDesc e, bool cond)
+        {
+            if (e.k == ExpKind.Reloc)
+            {
+                uint ie = Parser.getinstruction(fs, e);
+                if (Inst.OpCode(ie) == OpCode.NOT)
+                {
+                    fs.pc--;  /* remove previous OP_NOT */
+                    return condjump(fs, OpCode.TEST, Inst.B(ie), 0, !cond);
+                }
+                /* else go through */
+            }
+            discharge2anyreg(fs, e);
+            freeexp(fs, e);
+            return condjump(fs, OpCode.TESTSET, NO_REG, e.info, cond);
         }
 
         internal static void goiffalse(FuncState fs, ExpDesc e)
         {
-
+            int pc;  /* pc of new jump */
+            dischargevars(fs, e);
+            switch (e.k)
+            {
+                case ExpKind.Jump:
+                    {
+                        pc = e.info;  /* already jump if true */
+                        break;
+                    }
+                case ExpKind.Nil:
+                case ExpKind.False:
+                    {
+                        pc = Parser.NoJump;  /* always false; do nothing */
+                        break;
+                    }
+                default:
+                    {
+                        pc = jumponcond(fs, e, true);  /* jump if true */
+                        break;
+                    }
+            }
+            concat(fs, ref e.t, pc);  /* insert new jump in 't' list */
+            patchtohere(fs, e.f);  /* false list jumps to here (to go through) */
+            e.f = Parser.NoJump;
         }
 
+        /*
+        ** returns current 'pc' and marks it as a jump target (to avoid wrong
+        ** optimizations with consecutive instructions not in the same basic block).
+        */
         internal static int getlabel(FuncState fs)
         {
-            return 0;
+            fs.lasttarget = fs.pc;
+            return fs.pc;
         }
 
         internal static void patchtohere(FuncState fs, int list)
         {
-
-        }
-
-        internal static void patchtohere(FuncState fs, ExpDesc v)
-        {
-
+            int hr = getlabel(fs);  /* mark "here" as a jump target */
+            patchlist(fs, list, hr);
         }
 
         internal static int jump(FuncState fs)
@@ -1838,24 +1966,58 @@ namespace TLua.Parsing
             fs.f.Codes[pc] = Inst.SetSj(jmp, offset);
         }
 
+        /*
+        ** Path all jumps in 'list' to jump to 'target'.
+        ** (The assert means that we cannot fix a jump to a forward address
+        ** because we only know addresses once code is generated.)
+        */
         internal static void patchlist(FuncState fs, int list, int target)
         {
-
+            Lexer.assert(target <= fs.pc);
+            patchlistaux(fs, list, target, NO_REG, target);
         }
 
         internal static void integer(FuncState fs, int reg, int i)
         {
-
+            if (fitsBx(i))
+            {
+                codeAsBx(fs, OpCode.LOADI, reg, i);
+            }
+            else
+            {
+                codeK(fs, reg, luaK_intK(fs, i));
+            }
         }
 
-        internal static void floatnum(FuncState fs, int reg, double i)
+        internal static void floatnum(FuncState fs, int reg, double f)
         {
-
+            int fi = 0;
+            if (floatI(f, ref fi))
+            {
+                codeAsBx(fs, OpCode.LOADF, reg, fi);
+            }
+            else
+            {
+                codeK(fs, reg, luaK_numberK(fs, f));
+            }
         }
 
+        /*
+        ** Check register-stack level, keeping track of its maximum size
+        ** in field 'maxstacksize'
+        */
         internal static void checkstack(FuncState fs, int n)
         {
-
+#if false
+            int newstack = fs.freereg + n;
+            if (newstack > fs.f.maxstacksize)
+            {
+                if (newstack >= MAXREGS)
+                    luaX_syntaxerror(fs->ls,
+                      "function or expression needs too many registers");
+                fs->f->maxstacksize = cast_byte(newstack);
+            }
+#endif
         }
 
         internal static void jumpto(FuncState fs, int target)

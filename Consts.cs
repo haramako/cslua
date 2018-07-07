@@ -25,81 +25,76 @@ namespace TLua
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static OpCode OpCode(uint code)
 		{
-			return (OpCode)(code & 0x3f);
+			return (OpCode)(code & 0x7f);
 		}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int A(uint code)
 		{
-			return ((int)code >> 6) & 0xff;
+			return ((int)code >> 7) & 0xff;
 		}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int Ax(uint code)
 		{
-			return -1 - ((int)code >> 6);
+			return -1 - ((int)code >> 7);
 		}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int B(uint code)
 		{
-			var r = ((int)code >> 23) & 0x1ff;
-			if (r >= 0x100) {
-				return 0xff - r;
-			} else {
-				return r;
-			}
+			return ((int)code >> 16) & 0xff;
 		}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int Bx(uint code)
 		{
-			return (int)(code >> 14);
+			return (int)(code >> 15);
 		}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int sBx(uint code)
 		{
-			return (int)(code >> 14) - 0x1ffff;
+			return (int)(code >> 15) - Parsing.Code.OffsetSbx;
 		}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int C(uint code)
 		{
-			var r = ((int)code >> 14) & 0x1ff;
-			if (r >= 0x100) {
-				return 0xff - r;
-			} else {
-				return r;
-			}
+			return ((int)code >> 24) & 0x0ff;
 		}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool K(uint code)
         {
-            return false; // TODO
+            return ((code >> 15) & 1) != 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int sJ(uint code)
         {
-            return 0; // TODO
+            return (int)(code >> 8) - Parsing.Code.OffsetSj;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool M(uint code)
         {
-            return false; // TODO
+            return ((code >> 7) & 1) != 0;
         }
 
         public static uint CreateAx(OpCode op, int ax)
         {
-            return 0; // TODO
+            return (uint)ax << 7 | (uint)op;
         }
 
         public static uint CreateABCk(OpCode op, int a, int b, int c, bool k)
         {
-            return 0; // TODO
+            return (uint)c << 24 | (uint)b << 16 | (uint)(k ? 1 : 0) << 8 | (uint)a << 7 | (uint)op;
+        }
+
+        public static uint CreateABx(OpCode op, int a, int b)
+        {
+            return (uint)(b - Parsing.Code.OffsetSbx) << 16 | (uint)a << 7 | (uint)op;
         }
 
         public static string Inspect(uint code)
@@ -264,6 +259,9 @@ namespace TLua
         LTI,
         GEI,
         GTI,
+        UNDEF,
+        LOADI,
+        LOADF,
     }
 
     public class OpDatabase
