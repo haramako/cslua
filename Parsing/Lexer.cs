@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using TLua;
 
-namespace TLua
+namespace TLua.Parsing
 {
     static class TokenCharExtension
     {

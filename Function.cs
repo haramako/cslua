@@ -31,7 +31,7 @@ namespace TLua
         public List<Function> Protos = new List<Function>();
 		public uint[] DebugInfos;
 
-        internal List<Parser.LocVar> LocalVars = new List<Parser.LocVar>();
+        internal List<Parsing.Parser.LocVar> LocalVars = new List<Parsing.Parser.LocVar>();
 
 		// Root用のダミー関数
 		public Function()

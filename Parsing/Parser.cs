@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Linq;
+using TLua;
 
-namespace TLua
+namespace TLua.Parsing
 {
     using Proto = Function;
 
@@ -89,8 +90,8 @@ namespace TLua
             internal List<VarDesc> arr = new List<VarDesc>();
             internal int n;
             internal int size;
-            internal LabelList gt;  /* list of pending gotos */
-            internal LabelList label;   /* list of active labels */
+            internal LabelList gt = new LabelList();  /* list of pending gotos */
+            internal LabelList label = new LabelList();   /* list of active labels */
         }
 
         /* control of blocks */
@@ -2037,16 +2038,16 @@ namespace TLua
             close_func(ls);
         }
 
-        internal Closure luaY_parser (LuaState L, ZIO z, string name, TokenKind firstchar)
+        internal Proto Parse (LuaState L, ZIO z, string name, TokenKind firstchar)
         {
             Lexer lex = new Lexer(z, name, firstchar, new DynData());
             FuncState funcstate = new FuncState();
-            Closure cl = new Closure(new Proto());  /* create main closure */
+            var f = new Proto();  /* create main closure */
             //setclLvalue2s(L, L.top, cl);  /* anchor it (to avoid being collected) */
             //luaD_inctop(L);
             //sethvalue2s(L, L.top, lexstate.h);  /* anchor it */
             //luaD_inctop(L);
-            funcstate.f = cl.Func;// = new Proto();
+            funcstate.f = f;// = new Proto();
             funcstate.f.Filename = name;  /* create and anchor TString */
             //Lexer.assert(iswhite(funcstate.f));  /* do not need barrier here */
             //dyd.actvar.n = dyd.gt.n = dyd.label.n = 0;
@@ -2055,7 +2056,7 @@ namespace TLua
             /* all scopes should be correctly finished */
             //Lexer.assert(dyd.actvar.n == 0 && dyd.gt.n == 0 && dyd.label.n == 0);
             //L.top--;  /* remove scanner's table */
-            return cl;  /* closure is on the stack, too */
+            return f;  /* closure is on the stack, too */
         }
     }
 }

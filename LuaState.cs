@@ -86,12 +86,22 @@ namespace TLua
             var file = File.OpenRead(filename);
             var zio = new ZIO(file);
             var c = zio.ReadByte();
-            var lexer = new Lexer(zio, filename, (TokenKind)c, new Parser.DynData());
+            var parser = new Parsing.Parser();
+            var f = parser.Parse(this, zio, filename, (Parsing.TokenKind)c);
+            Console.WriteLine(f.ToString());
+        }
+
+        public void Lex(string filename)
+        {
+            var file = File.OpenRead(filename);
+            var zio = new ZIO(file);
+            var c = zio.ReadByte();
+            var lexer = new Parsing.Lexer(zio, filename, (Parsing.TokenKind)c, new Parsing.Parser.DynData());
             for (;;)
             {
                 lexer.ReadNext();
                 Console.WriteLine("{0,12} {1}", lexer.Tk.token.ToString(), lexer.txtToken(lexer.Tk.token));
-                if (lexer.Tk.token == TokenKind.Eos)
+                if (lexer.Tk.token == Parsing.TokenKind.Eos)
                 {
                     break;
                 }
