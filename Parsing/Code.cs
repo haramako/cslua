@@ -946,6 +946,11 @@ namespace TLua.Parsing
             }
         }
 
+        static void trace(params object[] args)
+        {
+            Parser.trace(args);
+        }
+
         /*
         ** Negate condition 'e' (where 'e' is a comparison).
         */
@@ -953,7 +958,6 @@ namespace TLua.Parsing
         {
             int pcPos = getjumpcontrol(fs, e.info);
             uint pc = fs.f.Codes[pcPos];
-            Console.WriteLine(Inst.Inspect(pc));
             Lexer.assert(Inst.IsTMode(Inst.OpCode(pc)) && Inst.OpCode(pc) != OpCode.TESTSET &&
                                                      Inst.OpCode(pc) != OpCode.TEST);
             pc = Inst.SetK(pc, !Inst.K(pc));
@@ -1584,7 +1588,7 @@ namespace TLua.Parsing
         {
             switch (op)
             {
-                case OpCode.AND:
+                case OpCode.BAND:
                 case OpCode.BOR:
                 case OpCode.BXOR:
                 case OpCode.SHL:

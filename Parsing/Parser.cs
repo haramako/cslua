@@ -1404,7 +1404,7 @@ namespace TLua.Parsing
         internal class LHS_assign
         {
             internal LHS_assign prev;
-            internal ExpDesc v;  /* variable (global, local, upvalue, or indexed) */
+            internal ExpDesc v = new ExpDesc();  /* variable (global, local, upvalue, or indexed) */
         }
 
 

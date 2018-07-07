@@ -161,7 +161,7 @@ namespace TLua
 
         public static bool IsTMode(OpCode op)
         {
-            return false; // TODO: testTMode
+            return (OpDatabase.Data[(int)op].Mode & OpMode.T) != 0; // TODO: testTMode
         }
     }
 
@@ -169,10 +169,12 @@ namespace TLua
 	{
 		public string Name;
 		public OpType Type;
-		public OpInfo(string name, OpType type)
+        public OpMode Mode;
+		public OpInfo(string name, OpType type, OpMode mode = OpMode.None)
 		{
 			Name = name;
 			Type = type;
+            Mode = mode;
 		}
 	}
 
@@ -185,102 +187,148 @@ namespace TLua
 		ABC,
 		AC,
 		Ax,
+        J,
 	}
+
+    [Flags]
+    public enum OpMode
+    {
+        None,
+        T,
+    }
 
 	public enum OpCode
 	{
-		MOVE = 0,
-		LOADK = 1,
-		LOADKX = 2,
-		LOADBOOL = 3,
-		LOADNIL = 4,
-		GETUPVAL = 5,
-		GETTABUP = 6,
-		GETTABLE = 7,
-		SETTABUP = 8,
-		SETUPVAL = 9,
-		SETTABLE = 10,
-		NEWTABLE = 11,
-		SELF = 12,
-		ADD = 13,
-		SUB = 14,
-		MUL = 15,
-		MOD = 16,
-		POW = 17,
-		DIV = 18,
-		IDIV = 19,
-		BAND = 20,
-		BOR = 21,
-		BXOR = 22,
-		SHL = 23,
-		SHR = 24,
-		UNM = 25,
-		BNOT = 26,
-		NOT = 27,
-		LEN = 28,
-		CONCAT = 29,
-        CLOSE = 47, // TODO: あとで番号を整える
-		JMP = 30,
-		EQ = 31,
-		LT = 32,
-		LE = 33,
-		TEST = 34,
-		TESTSET = 35,
-		CALL = 36,
-		TAILCALL = 37,
-		RETURN = 38,
-		FORLOOP = 39,
-		FORPREP = 40,
-		TFORCALL = 41,
-		TFORLOOP = 42,
-		SETLIST = 43,
-		CLOSURE = 44,
-		VARARG = 45,
-		EXTRAARG = 46,
-
-        // TODO: 追加分、あとで順番を整える
-        PREPVARARG,
-        FORPREP1,
-        FORLOOP1,
+		MOVE,
+        LOADI,
+		LOADF,
+        LOADK,
+        LOADKX,
+		LOADBOOL,
+		LOADNIL,
+		GETUPVAL,
+        SETUPVAL,
+        GETTABUP,
+		GETTABLE,
         GETI,
         GETFIELD,
+		SETTABUP,
+		SETTABLE,
         SETI,
         SETFIELD,
-        RETURN0,
-        RETURN1,
-        SHLI,
-        SHRI,
-        AND,
+		NEWTABLE,
+		SELF,
+
         ADDI,
+        SUBI,
+        MULI,
+        MODI,
+        POWI,
+        DIVI,
+        IDIVI,
+
         BANDK,
-        ISDEF,
-        EQI,
+        BORK,
+        BXORK,
+
+        SHRI,
+        SHLI,
+
+        ADD,
+		SUB,
+		MUL,
+		MOD,
+		POW,
+		DIV,
+		IDIV,
+		BAND,
+		BOR,
+		BXOR,
+		SHL,
+		SHR,
+		UNM,
+		BNOT,
+		NOT,
+		LEN,
+
+		CONCAT,
+
+        CLOSE,
+		JMP,
+		EQ,
+		LT,
+		LE,
+
         EQK,
+        EQI,
         LTI,
-        GEI,
+        LEI,
         GTI,
+        GEI,
+
+		TEST,
+		TESTSET,
+
         UNDEF,
-        LOADI,
-        LOADF,
+        ISDEF,
+
+		CALL,
+		TAILCALL,
+
+		RETURN,
+		RETURN0,
+        RETURN1,
+
+        FORLOOP1,
+        FORPREP1,
+
+        FORLOOP,
+		FORPREP,
+
+		TFORCALL,
+		TFORLOOP,
+		SETLIST,
+		CLOSURE,
+		VARARG,
+        PREPVARARG,
+        EXTRAARG,
     }
 
     public class OpDatabase
 	{
 		public static readonly OpInfo[] Data = new OpInfo[]{
 			new OpInfo("MOVE", OpType.AB),
-			new OpInfo("LOADK", OpType.ABx),
+            new OpInfo("LOADI", OpType.AsBx),
+            new OpInfo("LOADF", OpType.AsBx),
+            new OpInfo("LOADK", OpType.ABx),
 			new OpInfo("LOADKX", OpType.A),
 			new OpInfo("LOADBOOL", OpType.ABC),
 			new OpInfo("LOADNIL", OpType.AB),
 			new OpInfo("GETUPVAL", OpType.AB),
-			new OpInfo("GETTABUP", OpType.ABC),
+            new OpInfo("SETUPVAL", OpType.AB),
+            new OpInfo("GETTABUP", OpType.ABC),
 			new OpInfo("GETTABLE", OpType.ABC),
-			new OpInfo("SETTABUP", OpType.ABC),
-			new OpInfo("SETUPVAL", OpType.AB),
+            new OpInfo("GETI", OpType.ABC),
+            new OpInfo("GETFIELD", OpType.ABC),
+            new OpInfo("SETTABUP", OpType.ABC),
 			new OpInfo("SETTABLE", OpType.ABC),
-			new OpInfo("NEWTABLE", OpType.AB),
+            new OpInfo("SETI", OpType.ABC),
+            new OpInfo("SETFIELD", OpType.ABC),
+            new OpInfo("NEWTABLE", OpType.AB),
 			new OpInfo("SELF", OpType.ABC),
-			new OpInfo("ADD", OpType.ABC),
+            new OpInfo("ADDI", OpType.ABC),
+            new OpInfo("SUBI", OpType.ABC),
+            new OpInfo("MULI", OpType.ABC),
+            new OpInfo("MODI", OpType.ABC),
+            new OpInfo("POWI", OpType.ABC),
+            new OpInfo("DIVI", OpType.ABC),
+            new OpInfo("IDIVI", OpType.ABC),
+            new OpInfo("BANDK", OpType.ABC),
+            new OpInfo("BORK", OpType.ABC),
+            new OpInfo("BXORK", OpType.ABC),
+            new OpInfo("SHRI", OpType.ABC),
+            new OpInfo("SHLI", OpType.ABC),
+            new OpInfo("ADD", OpType.ABC),
 			new OpInfo("SUB", OpType.ABC),
 			new OpInfo("MUL", OpType.ABC),
 			new OpInfo("MOD", OpType.ABC),
@@ -297,23 +345,37 @@ namespace TLua
 			new OpInfo("NOT", OpType.AB),
 			new OpInfo("LEN", OpType.AB),
 			new OpInfo("CONCAT", OpType.ABC),
-			new OpInfo("JMP", OpType.AsBx),
-			new OpInfo("EQ", OpType.ABC),
-			new OpInfo("LT", OpType.ABC),
-			new OpInfo("LE", OpType.ABC),
-			new OpInfo("TEST", OpType.AC),
-			new OpInfo("TESTSET", OpType.ABC),
-			new OpInfo("CALL", OpType.ABC),
-			new OpInfo("TAILCALL", OpType.ABC),
-			new OpInfo("RETURN", OpType.AB),
-			new OpInfo("FORLOOP", OpType.AsBx),
+            new OpInfo("CLOSE", OpType.ABC),
+            new OpInfo("JMP", OpType.AsBx),
+			new OpInfo("EQ", OpType.ABC, OpMode.T),
+			new OpInfo("LT", OpType.ABC, OpMode.T),
+			new OpInfo("LE", OpType.ABC, OpMode.T),
+            new OpInfo("EQK", OpType.AB, OpMode.T),
+            new OpInfo("EQI", OpType.AsBx, OpMode.T),
+            new OpInfo("LTI", OpType.AsBx, OpMode.T),
+            new OpInfo("LEI", OpType.AsBx, OpMode.T),
+            new OpInfo("GTI", OpType.AsBx, OpMode.T),
+            new OpInfo("GEI", OpType.AsBx, OpMode.T),
+            new OpInfo("TEST", OpType.AC, OpMode.T),
+			new OpInfo("TESTSET", OpType.ABC, OpMode.T),
+			new OpInfo("UNDEF", OpType.AB),
+            new OpInfo("ISDEF", OpType.ABC),
+            new OpInfo("CALL", OpType.ABC),
+            new OpInfo("TAILCALL", OpType.ABC),
+			new OpInfo("RETURN", OpType.ABC),
+            new OpInfo("RETURN0", OpType.A),
+            new OpInfo("RETURN1", OpType.A),
+            new OpInfo("FORLOOP1", OpType.ABx),
+            new OpInfo("FORPREP1", OpType.AsBx),
+            new OpInfo("FORLOOP", OpType.AsBx),
 			new OpInfo("FORPREP", OpType.AsBx),
 			new OpInfo("TFORCALL", OpType.AC),
 			new OpInfo("TFORLOOP", OpType.AsBx),
 			new OpInfo("SETLIST", OpType.ABC),
 			new OpInfo("CLOSURE", OpType.ABx),
 			new OpInfo("VARARG", OpType.AB),
-			new OpInfo("EXTRAARG", OpType.Ax),
+            new OpInfo("PREPVARARG", OpType.A),
+            new OpInfo("EXTRAARG", OpType.Ax),
 		};
 	}
 }

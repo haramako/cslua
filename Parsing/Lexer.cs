@@ -810,7 +810,7 @@ namespace TLua.Parsing
                 t.token = llex(t);  /* read next token */
             }
 
-            Parser.trace("{0}", txtToken(t.token));
+            Parser.trace(txtToken(t.token));
         }
 
         internal Token Tk
