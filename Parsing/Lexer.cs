@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using TLua;
+using System.Diagnostics;
 
 namespace TLua.Parsing
 {
@@ -71,10 +72,9 @@ namespace TLua.Parsing
         /* number of reserved words */
         //#define NUM_RESERVED	(cast_int(TK_WHILE-FIRST_RESERVED + 1))
 
-        internal struct Token
+        internal class Token
         {
             internal TokenKind token;
-            internal LuaValue seminfo;
             internal float r;
             internal int i;
             internal string ts;
@@ -86,8 +86,8 @@ namespace TLua.Parsing
         TokenKind current;  /* current character (charint) */
         internal int linenumber;  /* input line counter */
         int lastline;  /* line of last token 'consumed' */
-        Token t;  /* current token */
-        Token lookahead;  /* look ahead token */
+        Token t = new Token();  /* current token */
+        Token lookahead = new Token();  /* look ahead token */
         internal Parser.FuncState fs;  /* current function (parser) */
         StringBuilder buff = new StringBuilder();
         ZIO z;  /* input stream */
@@ -292,7 +292,7 @@ namespace TLua.Parsing
         ** this function is quite liberal in what it accepts, as 'luaO_str2num'
         ** will reject ill-formed numerals.
         */
-        TokenKind readNumeral(out LuaValue seminfo)
+        TokenKind readNumeral(Token seminfo)
         {
             string expo = "Ee";
             char first = (char)current;
@@ -316,19 +316,19 @@ namespace TLua.Parsing
             {
                 lexerror("malformed number", TokenKind.Float);
             }
-            LuaValue obj = new LuaValue(num);
-            seminfo = obj;
-            if (obj.IsInteger)
+            if( Math.Floor(num) == num)
             {
+                seminfo.i = (int)Math.Floor(num);
                 return TokenKind.Int;
             }
             else
             {
+                seminfo.r = num;
                 return TokenKind.Float;
             }
         }
 
-
+        [DebuggerNonUserCode]
         public static void assert(bool pred)
         {
             if( !pred)
@@ -357,7 +357,7 @@ namespace TLua.Parsing
         }
 
 
-        void readLongString(out LuaValue seminfo, int sep, bool isString)
+        void readLongString(Token seminfo, int sep, bool isString)
         {
             int line = linenumber;  /* initial line (for error message) */
             saveAndNext();  /* skip 2nd '[' */
@@ -412,11 +412,7 @@ namespace TLua.Parsing
             endloop:
             if (isString)
             {
-                seminfo = new LuaValue(buff.ToString());
-            }
-            else
-            {
-                seminfo = new LuaValue();
+                seminfo.ts = buff.ToString();
             }
         }
 
@@ -535,7 +531,7 @@ namespace TLua.Parsing
         }
 
 
-        void readString(char del, out LuaValue seminfo)
+        void readString(char del, Token seminfo)
         {
             saveAndNext();  /* keep delimiter (for error messages) */
             while ((char)current != del)
@@ -614,12 +610,11 @@ namespace TLua.Parsing
                 }
             }
             saveAndNext();  /* skip delimiter */
-            seminfo = new LuaValue(buff.ToString(1, buff.Length - 2));
+            seminfo.ts = buff.ToString(1, buff.Length - 2);
         }
 
-        TokenKind llex(out LuaValue seminfo)
+        TokenKind llex(Token seminfo)
         {
-            seminfo = new LuaValue();
             buff.Clear();
             for (;;)
             {
@@ -654,7 +649,7 @@ namespace TLua.Parsing
                                 buff.Clear();
                                 if (sep >= 0)
                                 {
-                                    readLongString(out seminfo, sep, false);  /* skip long comment */
+                                    readLongString(seminfo, sep, false);  /* skip long comment */
                                     buff.Clear();  /* previous call may dirty the buff. */
                                     break;
                                 }
@@ -671,7 +666,7 @@ namespace TLua.Parsing
                             int sep = skipSep();
                             if (sep >= 0)
                             {
-                                readLongString(out seminfo, sep, true);
+                                readLongString(seminfo, sep, true);
                                 return TokenKind.String;
                             }
                             else if (sep != -1)
@@ -722,7 +717,7 @@ namespace TLua.Parsing
                     case '"':
                     case '\'':
                         {  /* short literal strings */
-                            readString((char)current, out seminfo);
+                            readString((char)current, seminfo);
                             return TokenKind.DbColon;
                         }
                     case '.':
@@ -735,7 +730,7 @@ namespace TLua.Parsing
                                 else return TokenKind.Concat;   /* '..' */
                             }
                             else if (!Char.IsDigit((char)current)) return (TokenKind)'.';
-                            else return readNumeral(out seminfo);
+                            else return readNumeral(seminfo);
                         }
                     case '0':
                     case '1':
@@ -748,7 +743,7 @@ namespace TLua.Parsing
                     case '8':
                     case '9':
                         {
-                            return readNumeral(out seminfo);
+                            return readNumeral(seminfo);
                         }
                     case '\0':
                         {
@@ -763,7 +758,7 @@ namespace TLua.Parsing
                                     saveAndNext();
                                 } while (islalnum((char)current));
                                 var ts = buff.ToString();
-                                seminfo = new LuaValue(ts);
+                                seminfo.ts = ts;
                                 TokenKind kind;
                                 if (tokenDict.TryGetValue(ts, out kind))
                                 {
@@ -772,6 +767,7 @@ namespace TLua.Parsing
                                 }
                                 else
                                 {
+
                                     return TokenKind.Name;
                                 }
                             }
@@ -811,8 +807,10 @@ namespace TLua.Parsing
             }
             else
             {
-                t.token = llex(out t.seminfo);  /* read next token */
+                t.token = llex(t);  /* read next token */
             }
+
+            Parser.trace("{0}", txtToken(t.token));
         }
 
         internal Token Tk
@@ -826,7 +824,7 @@ namespace TLua.Parsing
         internal TokenKind ReadLookahead()
         {
             assert(lookahead.token == TokenKind.Eos);
-            lookahead.token = llex(out lookahead.seminfo);
+            lookahead.token = llex(lookahead);
             return lookahead.token;
         }
 

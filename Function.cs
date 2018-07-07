@@ -24,7 +24,7 @@ namespace TLua
 		public int MaxStackSize;
 
 		public uint[] Codes;
-		public LuaValue[] Consts;
+		public LuaValue[] Consts = new LuaValue[0];
 		// public UpvalTag[] Upvals; TODO: あとで作成時用のFunctionと利用時のFunctionにわける
         public List<UpvalTag> Upvals;
 		// public Function[] Protos;

@@ -166,7 +166,8 @@ namespace TLua.Parsing
 
         internal static void reserveregs(Parser.FuncState fs, int n)
         {
-
+            checkstack(fs, n);
+            fs.freereg += n;
         }
 
         internal static void exp2nextreg(Parser.FuncState fs, Parser.ExpDesc e)

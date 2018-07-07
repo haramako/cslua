@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Linq;
 using TLua;
+using System.Diagnostics;
 
 namespace TLua.Parsing
 {
@@ -47,7 +48,7 @@ namespace TLua.Parsing
         //#define vkisindexed(k)	(VINDEXED <= (k) && (k) <= VINDEXSTR)
         //#define vkisinreg(k)	((k) == VNONRELOC || (k) == VLOCAL)
 
-        internal struct ExpDesc
+        internal class ExpDesc
         {
             internal ExpKind k;
             internal int ival;
@@ -250,6 +251,22 @@ namespace TLua.Parsing
             check_match(ls, (TokenKind)what, (TokenKind)who, where);
         }
 
+        static bool EnableTrace = true;
+
+        [Conditional("DEBUG")]
+        internal static void trace(params object[] args)
+        {
+            if (EnableTrace)
+            {
+                Console.Write("TRACE: ");
+                foreach (var arg in args)
+                {
+                    Console.Write(arg);
+                    Console.Write(", ");
+                }
+                Console.WriteLine("");
+            }
+        }
 
         string str_checkname(Lexer ls) {
             check(ls, TokenKind.Name);
@@ -295,7 +312,7 @@ namespace TLua.Parsing
             Function f = fs.f;
             int oldsize = f.MaxStackSize;
             f.LocalVars.Add(new LocVar { varname = varname });
-            return f.LocalVars.Count;
+            return f.LocalVars.Count-1;
         }
 
 
@@ -328,7 +345,7 @@ namespace TLua.Parsing
         LocVar getlocvar(FuncState fs, int i)
         {
             int idx = fs.ls.dyd.arr[fs.firstlocal + i].idx;
-            Lexer.assert(idx < fs.nlocvars);
+            Lexer.assert(idx < fs.f.LocalVars.Count);
             return fs.f.LocalVars[idx];
         }
 
@@ -1170,7 +1187,7 @@ namespace TLua.Parsing
                             break;
                         }
                     default:
-                        break;
+                        return; 
                 }
             }
         }
@@ -2043,6 +2060,7 @@ namespace TLua.Parsing
             Lexer lex = new Lexer(z, name, firstchar, new DynData());
             FuncState funcstate = new FuncState();
             var f = new Proto();  /* create main closure */
+            f.Upvals.Add(new UpvalTag { Name = "_ENV", Index = 0, InStack = 0 }); // _ENVを定義
             //setclLvalue2s(L, L.top, cl);  /* anchor it (to avoid being collected) */
             //luaD_inctop(L);
             //sethvalue2s(L, L.top, lexstate.h);  /* anchor it */
