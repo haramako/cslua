@@ -84,8 +84,8 @@ namespace TLua.Parsing
     internal class DynData
     {
         internal List<VarDesc> arr = new List<VarDesc>();
-        internal int n;
-        internal int size;
+        //internal int n;
+        //internal int size;
         internal LabelList gt = new LabelList();  /* list of pending gotos */
         internal LabelList label = new LabelList();   /* list of active labels */
     }
@@ -101,7 +101,12 @@ namespace TLua.Parsing
         internal FuncState prev;  /* enclosing function */
         internal Lexer ls;  /* lexical state */
         internal BlockCnt bl;  /* chain of current blocks */
-        internal int pc;  /* next position to code (equivalent to 'ncode') */
+        //internal int pc_;  /* next position to code (equivalent to 'ncode') */
+		internal int pc {
+			get {
+				return f.Codes.Count;
+			}
+		}
         internal int lasttarget;   /* 'label' of last 'jump label' */
         internal int previousline;  /* last line that was saved in 'lineinfo' */
         internal int nk;  /* number of elements in 'k' */
@@ -186,6 +191,7 @@ namespace TLua.Parsing
         //static void expr (Lexer ls, ExpDesc v);
 
 
+        [DebuggerNonUserCode]
         void error_expected(Lexer ls, TokenKind token) {
             ls.syntaxerror(string.Format("{0} expected", Lexer.token2str(token)));
         }
@@ -226,6 +232,7 @@ namespace TLua.Parsing
             return testnext(ls, (TokenKind)c);
         }
 
+        [DebuggerNonUserCode]
         void check(Lexer ls, TokenKind c)
         {
             if (ls.Tk.token != c)
@@ -235,11 +242,13 @@ namespace TLua.Parsing
         }
 
 
+        [DebuggerNonUserCode]
         void checknext(Lexer ls, char c)
         {
             checknext(ls, (TokenKind)c);
         }
 
+        [DebuggerNonUserCode]
         void checknext(Lexer ls, TokenKind c)
         {
             check(ls, c);
@@ -281,10 +290,11 @@ namespace TLua.Parsing
                 Console.Write("TRACE: ");
                 foreach (var arg in args)
                 {
-                    Console.Write(arg);
+                    Console.Write(arg.ToString());
                     Console.Write(", ");
                 }
                 Console.WriteLine("");
+				Console.Out.Flush();
             }
         }
 
@@ -337,10 +347,11 @@ namespace TLua.Parsing
 
 
         void new_localvar(Lexer ls, string name) {
+			trace("newlocalvar", name);
             FuncState fs = ls.fs;
             DynData dyd = ls.dyd;
             int reg = registerlocalvar(ls, name);
-            checklimit(fs, dyd.n + 1 - fs.firstlocal, MaxVars, "local variables");
+            checklimit(fs, dyd.arr.Count + 1 - fs.firstlocal, MaxVars, "local variables");
             dyd.arr.Add(new VarDesc { idx = (short)reg });
         }
 
@@ -382,11 +393,13 @@ namespace TLua.Parsing
 
         void removevars(FuncState fs, int tolevel)
         {
-            fs.ls.dyd.n -= (fs.nactvar - tolevel);
+			var del = (fs.nactvar - tolevel);
+			trace("del", del);
             while (fs.nactvar > tolevel)
             {
                 getlocvar(fs, --fs.nactvar).endpc = fs.pc;
             }
+			fs.ls.dyd.arr.RemoveRange(fs.ls.dyd.arr.Count - del, del);
         }
 
 
@@ -750,7 +763,7 @@ namespace TLua.Parsing
             fs.prev = ls.fs;  /* linked list of funcstates */
             fs.ls = ls;
             ls.fs = fs;
-            fs.pc = 0;
+            //fs.pc = 0;
             //fs.previousline = f.linedefined;
             fs.iwthabs = 0;
             fs.lasttarget = 0;
@@ -761,7 +774,7 @@ namespace TLua.Parsing
             fs.nups = 0;
             fs.nlocvars = 0;
             fs.nactvar = 0;
-            fs.firstlocal = ls.dyd.n;
+            fs.firstlocal = ls.dyd.arr.Count;
             fs.bl = null;
             //f.source = ls.source;
             //f.maxstacksize = 2;  /* registers 0/1 are always valid */
@@ -859,9 +872,9 @@ namespace TLua.Parsing
         */
 
 
-        internal struct ConsControl {
-            internal ExpDesc v;  /* last list item read */
-            internal ExpDesc t;  /* table descriptor */
+        internal class ConsControl {
+            internal ExpDesc v = new ExpDesc();  /* last list item read */
+            internal ExpDesc t = new ExpDesc();  /* table descriptor */
             internal int nh;  /* total number of 'record' elements */
             internal int na;  /* total number of array elements */
             internal int tostore;  /* number of array elements pending to be stored */

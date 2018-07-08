@@ -312,7 +312,7 @@ namespace TLua.Parsing
                     saveAndNext();
                 else break;
             }
-            save('\0');
+            //save('\0');
             float num;
             if (!Single.TryParse(buff.ToString(), out num))
             {
@@ -804,15 +804,16 @@ namespace TLua.Parsing
             lastline = linenumber;
             if (lookahead.token != TokenKind.Eos)
             {  /* is there a look-ahead token? */
+				var tmp = t;
                 t = lookahead;  /* use this one */
+				lookahead = tmp;
                 lookahead.token = TokenKind.Eos;  /* and discharge it */
             }
             else
             {
                 t.token = llex(t);  /* read next token */
+				Parser.trace("TK", txtToken(t.token));
             }
-
-            Parser.trace(txtToken(t.token));
         }
 
         internal Token Tk
@@ -827,6 +828,7 @@ namespace TLua.Parsing
         {
             assert(lookahead.token == TokenKind.Eos);
             lookahead.token = llex(lookahead);
+			Parser.trace("TK", txtToken(lookahead.token));
             return lookahead.token;
         }
 

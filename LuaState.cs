@@ -179,7 +179,7 @@ namespace TLua
                     {
                         ins = Inst.Inspect(c);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
 
                     }

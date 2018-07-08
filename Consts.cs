@@ -99,6 +99,11 @@ namespace TLua
             return (uint)(b - Parsing.Code.OffsetSbx) << 16 | (uint)a << 7 | (uint)op;
         }
 
+		public static uint CreateSj(OpCode op, int sj, bool k)
+        {
+			return (uint)(sj << 8) | (uint)(k ? 1 : 0) << 7 | (uint)op;
+        }
+
         public static string Inspect(uint code)
 		{
 			var opcode = Inst.OpCode(code);

@@ -640,8 +640,9 @@ namespace TLua.Parsing
         {
             Proto f = fs.f;
             f.Codes.Add(i);
-            //savelineinfo(fs, f, fs.pc, fs.ls.lastline);
-            return fs.pc++;
+			//savelineinfo(fs, f, fs.pc, fs.ls.lastline);
+			trace("pc", fs.pc+1, f.Codes.Count);
+            return fs.pc-1;
         }
 
         internal static int codeK(FuncState fs, int reg, int k)
@@ -676,6 +677,14 @@ namespace TLua.Parsing
             //Lexer.assert(getOpMode(o) == iABC);
             Lexer.assert(a <= MaxArgA && b <= MaxArgB && c <= MaxArgC );
             return code(fs, Inst.CreateABCk(o, a, b, c, k));
+        }
+
+		internal static int codeSj(FuncState fs, OpCode o, int sj, bool k)
+        {
+			int j = sj + OffsetSj;
+			//Lexer.assert(Inst.getOpMode(o) == isJ);
+			Lexer.assert(j <= MaxArgSj);
+            return code(fs, Inst.CreateSj(o, j, k));
         }
 
         internal static int codeABC(FuncState fs, OpCode o, int a, int b, int c)
@@ -1788,8 +1797,9 @@ namespace TLua.Parsing
         {
             if (e.k == ExpKind.Call)
             {  /* expression is an open function call? */
-               /* already returns 1 value */
-                Lexer.assert(Inst.C(Parser.getinstruction(fs, e)) == 2);
+			   /* already returns 1 value */
+				Parser.trace("setoneret", Inst.Inspect(Parser.getinstruction(fs, e)));
+				Lexer.assert(Inst.C(Parser.getinstruction(fs, e)) == 2);
                 e.k = ExpKind.NonReloc;  /* result has fixed position */
                 e.info = Inst.A(Parser.getinstruction(fs, e));
             }
@@ -1848,7 +1858,8 @@ namespace TLua.Parsing
                 uint ie = Parser.getinstruction(fs, e);
                 if (Inst.OpCode(ie) == OpCode.NOT)
                 {
-                    fs.pc--;  /* remove previous OP_NOT */
+					//fs.pc--;  /* remove previous OP_NOT */
+					fs.f.Codes.RemoveAt(fs.f.Codes.Count - 1);
                     return condjump(fs, OpCode.TEST, Inst.B(ie), 0, !cond);
                 }
                 /* else go through */
@@ -1904,7 +1915,7 @@ namespace TLua.Parsing
 
         internal static int jump(FuncState fs)
         {
-            return 0;
+			return codeSj(fs, OpCode.JMP, Parser.NoJump, false);
         }
 
         /*

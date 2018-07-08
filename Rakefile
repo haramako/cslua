@@ -5,10 +5,11 @@
 
 if RUBY_PLATFORM =~ /darwin/
   MONO = ['mono']
+  LUA = './lua54'
 else
   MONO = []
+  LUA = 'lua54.exe'
 end
-LUA = 'lua54'
 TLUA = 'bin/Debug/cslua.exe'
 TEST_DIR = 'lua-5.3.4-tests'
 
@@ -54,6 +55,7 @@ task :tluac do
   mkdir_p 'tmp/luac'
   FileList[TEST_DIR+'/*.lua'].each do |f|
     luac_txt = "tmp/luac/#{File.basename(f,'.lua')}_t.txt"
-    sh( *MONO, TLUA, f, out: luac_txt)
+    sh( *MONO, TLUA, f)
+    #sh( *MONO, TLUA, f, out: luac_txt)
   end
 end
