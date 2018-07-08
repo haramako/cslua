@@ -51,6 +51,8 @@ namespace TLua
 			HasVarArg = (z.ReadByte() != 0);
 			MaxStackSize = z.ReadByte();
 
+            //Console.WriteLine("****FUNC {0} {1}", filename, Name);
+
 			var size = z.ReadSize();
             Codes = new List<uint>(size);// new uint[size];
 			for (var i = 0; i < size; i++) {
@@ -82,9 +84,11 @@ namespace TLua
 				default:
 					throw new Exception("not implemented");
 				}
+                //Console.WriteLine("{0}", Consts[i]);
 			}
 
 			size = z.ReadSize();
+            //Console.WriteLine("*upval {0}", size);
             //Upvals = new UpvalTag[size];
             Upvals = new List<UpvalTag>(size);
             for (var i = 0; i < size; i++) {
@@ -94,6 +98,7 @@ namespace TLua
 			}
 
 			size = z.ReadSize();
+            //Console.WriteLine("*proto {0}", size);
             //Protos = new Function[size];
             Protos = new List<Function>(size);
 			for (var i = 0; i < size; i++) {
@@ -103,33 +108,35 @@ namespace TLua
 
             // read lineinfo
             size = z.ReadSize();
-            Console.WriteLine("line {0}", size);
+            //Console.WriteLine("*lineinfo {0}", size);
             for (var i = 0; i < size; i++)
             {
                 z.ReadByte();
             }
 
             size = z.ReadSize();
-            Console.WriteLine("absline {0}", size);
+            //Console.WriteLine("*absline {0}", size);
             for (var i = 0; i < size; i++)
             {
-                z.ReadByte();
-                z.ReadByte();
+                z.ReadSize();
+                z.ReadSize();
             }
 
 			// local vars
 			size = z.ReadSize();
-			// DebugInfos = new uint[size];
-			for (var i = 0; i < size; i++) {
-				z.ReadString();
+            //Console.WriteLine("*localvar {0}", size);
+            // DebugInfos = new uint[size];
+            for (var i = 0; i < size; i++) {
+				var s = z.ReadString();
 				z.ReadSize();
 				z.ReadSize();
 			}
 
 			// upval names
 			size = z.ReadSize();
-			//DebugInfos = new uint[size];
-			for (var i = 0; i < size; i++) {
+            //Console.WriteLine("*upvalnames {0}", size);
+            //DebugInfos = new uint[size];
+            for (var i = 0; i < size; i++) {
 				z.ReadString();
 			}
 

@@ -15,10 +15,11 @@ namespace TLua.Parsing
         internal const int MaxArgA = (1 << 8) - 1;
         internal const int MaxArgAx = (1 << 16) - 1;
         internal const int MaxArgB = (1 << 8) - 1;
-        internal const int MaxArgBx = (1 << 16) - 1;
+        internal const int MaxArgBx = (1 << 17) - 1;
         internal const int MaxArgC = (1 << 8) - 1;
         internal const int MaxArgSj = (1 << 24) - 1;
         internal const int MaxIndexRk = MaxArgB;
+        internal const int OffsetAx = MaxArgAx >> 1;
         internal const int OffsetSbx = MaxArgBx >> 1;
         internal const int OffsetSc = MaxArgC >> 1;
         internal const int OffsetSj = MaxArgSj >> 1;

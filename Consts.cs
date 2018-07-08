@@ -7,17 +7,19 @@ namespace TLua
 	{
 		Nil = 0,
 		Boolean = 1,
-		LIghtUserData = 2,
+		LightUserData = 2,
 		Number = 3,
 		String = 4,
 		Table = 5,
 		Function = 6,
 		UserData = 7,
+        Thread = 8, // ???
+        NumTags = 9, // ???
 
-		ShortString = (int)String | (0 << 4),
-		LongString = (int)String | (1 << 4),
-		NumFloat = (int)Number | (0 << 4),
-		NumInt = (int)Number | (1 << 4),
+		ShortString = (int)String | (1 << 4),
+		LongString = (int)String | (2 << 4),
+		NumFloat = (int)Number | (1 << 4),
+		NumInt = (int)Number | (2 << 4),
 	}
 
 	public class Inst
@@ -37,7 +39,7 @@ namespace TLua
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int Ax(uint code)
 		{
-			return -1 - ((int)code >> 7);
+			return ((int)code >> 7) - Parsing.Code.OffsetAx;
 		}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -55,7 +57,7 @@ namespace TLua
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int sBx(uint code)
 		{
-			return (int)(code >> 15) - Parsing.Code.OffsetSbx;
+			return (int)((code >> 15) - Parsing.Code.OffsetSbx);
 		}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -103,17 +105,17 @@ namespace TLua
 			var info = OpDatabase.Data[(int)opcode];
 			switch (info.Type) {
 			case OpType.A:
-				return string.Format("{0,-8} {1}", opcode.ToString(), A(code));
+				return string.Format("{0,-10} {1}", opcode.ToString(), A(code));
 			case OpType.AB:
-				return string.Format("{0,-8} {1} {2}", opcode.ToString(), A(code), B(code));
+				return string.Format("{0,-10} {1} {2}", opcode.ToString(), A(code), B(code));
 			case OpType.ABx:
-				return string.Format("{0,-8} {1} {2}", opcode.ToString(), A(code), Bx(code));
+				return string.Format("{0,-10} {1} {2}", opcode.ToString(), A(code), Bx(code));
 			case OpType.AsBx:
-				return string.Format("{0,-8} {1} {2}", opcode.ToString(), A(code), sBx(code));
+				return string.Format("{0,-10} {1} {2}", opcode.ToString(), A(code), sBx(code));
 			case OpType.ABC:
-				return string.Format("{0,-8} {1} {2} {3}", opcode.ToString(), A(code), B(code), C(code));
+				return string.Format("{0,-10} {1} {2} {3}", opcode.ToString(), A(code), B(code), C(code));
 			case OpType.AC:
-				return string.Format("{0,-8} {1} {2}", opcode.ToString(), A(code), C(code));
+				return string.Format("{0,-10} {1} {2}", opcode.ToString(), A(code), C(code));
 			default:
 				throw new Exception("not implemented");
 			}
@@ -350,13 +352,13 @@ namespace TLua
 			new OpInfo("EQ", OpType.ABC, OpMode.T),
 			new OpInfo("LT", OpType.ABC, OpMode.T),
 			new OpInfo("LE", OpType.ABC, OpMode.T),
-            new OpInfo("EQK", OpType.AB, OpMode.T),
-            new OpInfo("EQI", OpType.AsBx, OpMode.T),
-            new OpInfo("LTI", OpType.AsBx, OpMode.T),
-            new OpInfo("LEI", OpType.AsBx, OpMode.T),
-            new OpInfo("GTI", OpType.AsBx, OpMode.T),
-            new OpInfo("GEI", OpType.AsBx, OpMode.T),
-            new OpInfo("TEST", OpType.AC, OpMode.T),
+            new OpInfo("EQK", OpType.ABC, OpMode.T),
+            new OpInfo("EQI", OpType.ABC, OpMode.T),
+            new OpInfo("LTI", OpType.ABC, OpMode.T),
+            new OpInfo("LEI", OpType.ABC, OpMode.T),
+            new OpInfo("GTI", OpType.ABC, OpMode.T),
+            new OpInfo("GEI", OpType.ABC, OpMode.T),
+            new OpInfo("TEST", OpType.ABC, OpMode.T),
 			new OpInfo("TESTSET", OpType.ABC, OpMode.T),
 			new OpInfo("UNDEF", OpType.AB),
             new OpInfo("ISDEF", OpType.ABC),
@@ -366,11 +368,11 @@ namespace TLua
             new OpInfo("RETURN0", OpType.A),
             new OpInfo("RETURN1", OpType.A),
             new OpInfo("FORLOOP1", OpType.ABx),
-            new OpInfo("FORPREP1", OpType.AsBx),
-            new OpInfo("FORLOOP", OpType.AsBx),
-			new OpInfo("FORPREP", OpType.AsBx),
+            new OpInfo("FORPREP1", OpType.ABx),
+            new OpInfo("FORLOOP", OpType.ABx),
+			new OpInfo("FORPREP", OpType.ABx),
 			new OpInfo("TFORCALL", OpType.AC),
-			new OpInfo("TFORLOOP", OpType.AsBx),
+			new OpInfo("TFORLOOP", OpType.ABx),
 			new OpInfo("SETLIST", OpType.ABC),
 			new OpInfo("CLOSURE", OpType.ABx),
 			new OpInfo("VARARG", OpType.AB),

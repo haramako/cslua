@@ -57,14 +57,10 @@ namespace TLua
             for (;;)
             {
                 var b = ReadByte();
-                if( b >= 0x80)
+                r = r << 7 | (b & 0x7f);
+                if ( b >= 0x80)
                 {
-                    r = r << 7 | (b & 0x7f);
                     break;
-                }
-                else
-                {
-                    r = r << 7 | b;
                 }
             }
             return r;
@@ -73,13 +69,12 @@ namespace TLua
 		public string ReadString()
 		{
 			var size = ReadSize();
-			if (size == 0xff) {
-				throw new Exception("Not implemented");
-			}
 			if (size == 0) {
 				return "";
 			} else {
-				return System.Text.Encoding.UTF8.GetString(r_.ReadBytes(size - 1));
+                var r = System.Text.Encoding.UTF8.GetString(r_.ReadBytes(size - 1));
+                //Console.WriteLine("s {0} ''{1}''", size, r);
+                return r;
 			}
 		}
 

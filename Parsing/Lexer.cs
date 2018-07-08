@@ -222,10 +222,12 @@ namespace TLua.Parsing
             public ParserException(string message) : base(message) { }
         }
 
+        [DebuggerNonUserCode]
         void lexerror(string msg, TokenKind token) {
             throw new ParserException(string.Format("{0} near {1}", msg, txtToken(token)));
         }
 
+        [DebuggerNonUserCode]
         internal void syntaxerror(string msg)
         {
             lexerror(msg, t.token);
@@ -718,7 +720,7 @@ namespace TLua.Parsing
                     case '\'':
                         {  /* short literal strings */
                             readString((char)current, seminfo);
-                            return TokenKind.DbColon;
+                            return TokenKind.String;
                         }
                     case '.':
                         {  /* '.', '..', '...', or number */

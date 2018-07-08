@@ -1,4 +1,4 @@
-#!../lua
+-- #!../lua
 -- $Id: all.lua,v 1.95 2016/11/07 13:11:28 roberto Exp $
 -- See Copyright Notice at the end of this file
 
@@ -6,7 +6,7 @@ local err_count = 0
 _G.assert_old = asert
 _G.assert = function(x)
    if not x then
-	  err_count = err_count + 1
+    err_count = err_count + 1
 	  print("*****************************\n")
    end
    return x

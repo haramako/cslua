@@ -1,2 +1,1 @@
-local obj = loadfile('fib.lua')
-print(string.dump(obj))
+print(string.dump(loadfile(arg[1])))
