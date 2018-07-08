@@ -14,6 +14,7 @@ namespace TLua
                 return fib(n - 1) + fib(n -2); 
             }
         }
+
 		public static void Main(string[] args)
 		{
             //Console.WriteLine("" + fib(32));
@@ -46,7 +47,14 @@ namespace TLua
 				}
 				var lua = new LuaState();
 
-                lua.Parse(arg);
+                if (arg.EndsWith(".luac"))
+                {
+                    lua.LoadObj(arg);
+                }
+                else
+                {
+                    lua.Parse(arg);
+                }
                 break;
 
 				lua.LoadFile(arg);

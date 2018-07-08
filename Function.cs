@@ -45,20 +45,20 @@ namespace TLua
 		{
 			Filename = filename;
 			Name = z.ReadString();
-			LineStart = z.ReadInt();
-			LineEnd = z.ReadInt();
+			LineStart = z.ReadSize();
+			LineEnd = z.ReadSize();
 			ParamNum = z.ReadByte();
 			HasVarArg = (z.ReadByte() != 0);
 			MaxStackSize = z.ReadByte();
 
-			var size = z.ReadInt();
+			var size = z.ReadSize();
             Codes = new List<uint>(size);// new uint[size];
 			for (var i = 0; i < size; i++) {
                 //Codes[i] = (uint)z.ReadInt();
                 Codes.Add((uint)z.ReadInt());
 			}
 
-			size = z.ReadInt();
+			size = z.ReadSize();
 			Consts = new LuaValue[size];
 			for (var i = 0; i < size; i++) {
 				var type = (LoadType)z.ReadByte();
@@ -84,7 +84,7 @@ namespace TLua
 				}
 			}
 
-			size = z.ReadInt();
+			size = z.ReadSize();
             //Upvals = new UpvalTag[size];
             Upvals = new List<UpvalTag>(size);
             for (var i = 0; i < size; i++) {
@@ -93,7 +93,7 @@ namespace TLua
 				//Upvals[i].Index = z.ReadByte();
 			}
 
-			size = z.ReadInt();
+			size = z.ReadSize();
             //Protos = new Function[size];
             Protos = new List<Function>(size);
 			for (var i = 0; i < size; i++) {
@@ -101,24 +101,33 @@ namespace TLua
 				//Protos[i] = new Function(z, Filename);
 			}
 
-			// read dubug info
-			size = z.ReadInt();
-			DebugInfos = new uint[size];
-			for (var i = 0; i < size; i++) {
-				DebugInfos[i] = (uint)z.ReadInt();
-			}
+            // read lineinfo
+            size = z.ReadSize();
+            Console.WriteLine("line {0}", size);
+            for (var i = 0; i < size; i++)
+            {
+                z.ReadByte();
+            }
+
+            size = z.ReadSize();
+            Console.WriteLine("absline {0}", size);
+            for (var i = 0; i < size; i++)
+            {
+                z.ReadByte();
+                z.ReadByte();
+            }
 
 			// local vars
-			size = z.ReadInt();
+			size = z.ReadSize();
 			// DebugInfos = new uint[size];
 			for (var i = 0; i < size; i++) {
 				z.ReadString();
-				z.ReadInt();
-				z.ReadInt();
+				z.ReadSize();
+				z.ReadSize();
 			}
 
 			// upval names
-			size = z.ReadInt();
+			size = z.ReadSize();
 			//DebugInfos = new uint[size];
 			for (var i = 0; i < size; i++) {
 				z.ReadString();
@@ -148,6 +157,11 @@ namespace TLua
 	{
 		public string Filename;
 		public Function Main;
+
+        public Chunk()
+        {
+
+        }
 
 		public Chunk(Stream s, string filename)
 		{

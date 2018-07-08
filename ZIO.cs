@@ -51,9 +51,28 @@ namespace TLua
 			return r_.ReadDouble();
 		}
 
+        public int ReadSize()
+        {
+            int r = 0;
+            for (;;)
+            {
+                var b = ReadByte();
+                if( b >= 0x80)
+                {
+                    r = r << 7 | (b & 0x7f);
+                    break;
+                }
+                else
+                {
+                    r = r << 7 | b;
+                }
+            }
+            return r;
+        }
+
 		public string ReadString()
 		{
-			var size = r_.ReadByte();
+			var size = ReadSize();
 			if (size == 0xff) {
 				throw new Exception("Not implemented");
 			}

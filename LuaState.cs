@@ -89,6 +89,10 @@ namespace TLua
             var parser = new Parsing.Parser();
             var f = parser.Parse(this, zio, filename, (Parsing.TokenKind)c);
             Console.WriteLine(f.ToString());
+            var chunk = new Chunk();
+            chunk.Filename = filename;
+            chunk.Main = f;
+            DumpChunk(chunk);
         }
 
         public void Lex(string filename)
@@ -148,11 +152,56 @@ namespace TLua
 
 		}
 
-		//===========================================
-		// DEBUGビルド時のみ有効なチェック関数
-		//===========================================
+        public void LoadObj(string filename)
+        {
+            Chunk chunk;
+            using (var s = System.IO.File.OpenRead(filename))
+            {
+                chunk = new Chunk(s, filename);
+            }
 
-		[Conditional("DEBUG")]
+            DumpChunk(chunk);
+        }
+
+        public void DumpChunk(Chunk chunk)
+        {
+            var list = new List<Function>();
+            flattenFunc(chunk.Main, list);
+            foreach (var f in list)
+            {
+                Console.WriteLine("{0} lc:{1} stk:{2}", f.Name, f.LocalVars.Count, f.MaxStackSize);
+
+                for (int i = 0; i < f.Codes.Count; i++)
+                {
+                    var c = f.Codes[i];
+                    string ins = "?";
+                    try
+                    {
+                        ins = Inst.Inspect(c);
+                    }
+                    catch (Exception ex)
+                    {
+
+                    }
+                    Console.WriteLine("{0:D4}:{1:X8}:{2}", i, c, ins);
+                }
+            }
+        }
+
+        public void flattenFunc(Function f, List<Function> list)
+        {
+            list.Add(f);
+            foreach( var child in f.Protos)
+            {
+                flattenFunc(child, list);
+            }
+        }
+
+        //===========================================
+        // DEBUGビルド時のみ有効なチェック関数
+        //===========================================
+
+        [Conditional("DEBUG")]
 		void trace(params object[] args)
 		{
 			if (EnableTrace) {
