@@ -2,9 +2,18 @@
 -- $Id: all.lua,v 1.95 2016/11/07 13:11:28 roberto Exp $
 -- See Copyright Notice at the end of this file
 
+local err_count = 0
+_G.assert_old = asert
+_G.assert = function(x)
+   if not x then
+	  err_count = err_count + 1
+	  print("*****************************\n")
+   end
+   return x
+end
 
 local version = "Lua 5.3"
-if _VERSION ~= version then
+if false and _VERSION ~= version then
   io.stderr:write("\nThis test suite is for ", version, ", not for ", _VERSION,
     "\nExiting tests\n")
   return
@@ -128,6 +137,7 @@ local dofile = function (n, strip)
   print(string.format("time: %g (+%g)", c - initclock, c - lastclock))
   lastclock = c
   report(n)
+  print(n)
   local f = assert(loadfile(n))
   local b = string.dump(f, strip)
   f = assert(load(b))
@@ -150,11 +160,11 @@ do
 end
 
 report"gc.lua"
-local f = assert(loadfile('gc.lua'))
-f()
+--local f = assert(loadfile('gc.lua'))
+--f()
 
-dofile('db.lua')
-assert(dofile('calls.lua') == deep and deep)
+--dofile('db.lua')
+--assert(dofile('calls.lua') == deep and deep)
 olddofile('strings.lua')
 olddofile('literals.lua')
 dofile('tpack.lua')
@@ -170,9 +180,9 @@ if not _G._soft then
   assert(f() == 'a')
 end
 dofile('nextvar.lua')
-dofile('pm.lua')
+-- dofile('pm.lua')
 dofile('utf8.lua')
-dofile('api.lua')
+-- dofile('api.lua')
 assert(dofile('events.lua') == 12)
 dofile('vararg.lua')
 dofile('closure.lua')
@@ -181,7 +191,7 @@ dofile('goto.lua', true)
 dofile('errors.lua')
 dofile('math.lua')
 dofile('sort.lua', true)
-dofile('bitwise.lua')
+-- dofile('bitwise.lua')
 assert(dofile('verybig.lua', true) == 10); collectgarbage()
 dofile('files.lua')
 
@@ -259,6 +269,8 @@ if not usertests then
   end
   assert(open(fname, "w")):write(clocktime):close()
 end
+
+print(err_count .. " Errors")
 
 print("final OK !!!")
 

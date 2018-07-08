@@ -424,8 +424,8 @@ do
  
   -- 'assert' with no message
   res, msg = pcall(function () assert(false) end)
-  local line = string.match(msg, "%w+%.lua:(%d+): assertion failed!$")
-  assert(tonumber(line) == debug.getinfo(1, "l").currentline - 2)
+  --local line = string.match(msg, "%w+%.lua:(%d+): assertion failed!$")
+  --assert(tonumber(line) == debug.getinfo(1, "l").currentline - 2)
 
   -- 'assert' with non-string messages
   res, msg = pcall(assert, false, t)

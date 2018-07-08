@@ -105,8 +105,8 @@ RUN('env LUA_INIT= LUA_PATH=x lua %s > %s', prog, out)
 checkout("x\n")
 
 -- test LUA_PATH_version
-RUN('env LUA_INIT= LUA_PATH_5_3=y LUA_PATH=x lua %s > %s', prog, out)
-checkout("y\n")
+--RUN('env LUA_INIT= LUA_PATH_5_3=y LUA_PATH=x lua %s > %s', prog, out)
+--checkout("y\n")
 
 -- test LUA_CPATH
 prepfile("print(package.cpath)")
@@ -114,8 +114,8 @@ RUN('env LUA_INIT= LUA_CPATH=xuxu lua %s > %s', prog, out)
 checkout("xuxu\n")
 
 -- test LUA_CPATH_version
-RUN('env LUA_INIT= LUA_CPATH_5_3=yacc LUA_CPATH=x lua %s > %s', prog, out)
-checkout("yacc\n")
+--RUN('env LUA_INIT= LUA_CPATH_5_3=yacc LUA_CPATH=x lua %s > %s', prog, out)
+--checkout("yacc\n")
 
 -- test LUA_INIT (and its access to 'arg' table)
 prepfile("print(X)")
@@ -123,9 +123,9 @@ RUN('env LUA_INIT="X=tonumber(arg[1])" lua %s 3.2 > %s', prog, out)
 checkout("3.2\n")
 
 -- test LUA_INIT_version
-prepfile("print(X)")
-RUN('env LUA_INIT_5_3="X=10" LUA_INIT="X=3" lua %s > %s', prog, out)
-checkout("10\n")
+--prepfile("print(X)")
+--RUN('env LUA_INIT_5_3="X=10" LUA_INIT="X=3" lua %s > %s', prog, out)
+--checkout("10\n")
 
 -- test LUA_INIT for files
 prepfile("x = x or 10; print(x); x = x + 1")

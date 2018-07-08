@@ -74,7 +74,7 @@ end
 
 
 local function createfiles (files, preextras, posextras)
-  for n,c in pairs(files) do
+   for n,c in pairs(files) do
     io.output(D(n))
     io.write(string.format(preextras, n))
     io.write(c)

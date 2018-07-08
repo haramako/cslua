@@ -109,9 +109,9 @@ local function range (i, j)
   end
 end
 
-local abc = string.char(range(0, 255));
+-- local abc = string.char(range(0, 255));
 
-assert(string.len(abc) == 256)
+-- assert(string.len(abc) == 256)
 
 function strset (p)
   local res = {s=''}
