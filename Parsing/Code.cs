@@ -703,9 +703,9 @@ namespace TLua.Parsing
             codeABCk(fs, o, a, b, ec.info, k);
         }
 
-        internal static int codeABx(FuncState fs, OpCode o, int a, int bc)
+        internal static int codeABx(FuncState fs, OpCode o, int a, int bx)
         {
-            return codeABCk(fs, o, a, bc, 0, false);
+			return code(fs, Inst.CreateABx(o, a, bx));
         }
 
         internal static int code_loadbool(FuncState fs, int A, int b, int jump)
