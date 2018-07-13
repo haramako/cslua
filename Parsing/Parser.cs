@@ -116,7 +116,17 @@ namespace TLua.Parsing
         internal short nlocvars;  /* number of elements in 'f.locvars' */
         internal int nactvar;  /* number of active local variables */
         internal byte nups;  /* number of upvalues */
-        internal int freereg;  /* first free register */
+        internal int freereg_;  /* first free register */
+        internal int freereg
+        {
+            get { return freereg_; }
+            set
+            {
+                Console.WriteLine("freereg {0} => {1}", freereg_, value);
+                Console.WriteLine(string.Join("\n", Environment.StackTrace.Split('\n').Skip(2).Take(10)));
+                freereg_ = value;
+            }
+        }
         internal byte iwthabs;  /* instructions issued since last absolute line info */
     }
 
@@ -914,6 +924,7 @@ namespace TLua.Parsing
         {
             if (cc.v.k == ExpKind.Void)
             {
+                trace("closelistfield");
                 return;  /* there is no list item */
             }
             Code.exp2nextreg(fs, cc.v);

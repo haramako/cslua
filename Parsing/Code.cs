@@ -42,6 +42,7 @@ namespace TLua.Parsing
         */
         internal static bool isKstr(FuncState fs, ExpDesc e)
         {
+            Console.WriteLine("iskstr {0}", e.info);
             return (e.k == ExpKind.Const) && !hasjumps(e) && (e.info <= MaxArgB) && fs.f.Consts[e.info].IsString;
         }
 
@@ -397,12 +398,12 @@ namespace TLua.Parsing
                 t.indIdx = k.info;  /* literal string */
                 t.k = ExpKind.IndexUp;
             }
-            else if (isKstr(fs, k))
+            else if (false && isKstr(fs, k))
             {
                 t.indIdx = k.info;  /* literal string */
                 t.k = ExpKind.IndexString;
             }
-            else if (isCint(k))
+            else if (false && isCint(k))
             {
                 t.indIdx = k.ival;  /* integer constant in proper range */
                 t.k = ExpKind.IndexInt;
@@ -563,7 +564,9 @@ namespace TLua.Parsing
             int b = (tostore == Parser.LUA_MULTRET) ? 0 : tostore;
             Lexer.assert(tostore != 0 && tostore <= Parser.LFIELDS_PER_FLUSH);
             if (c <= MaxArgC)
+            {
                 codeABC(fs, OpCode.SETLIST, base_, b, c);
+            }
             else if (c <= MaxArgAx)
             {
                 codeABC(fs, OpCode.SETLIST, base_, b, 0);
@@ -629,7 +632,26 @@ namespace TLua.Parsing
 
         internal static void concat(FuncState fs, ref int l1, int l2)
         {
-
+            if (l2 == Parser.NoJump)
+            {
+                return;  /* nothing to concatenate? */
+            }
+            else if (l1 == Parser.NoJump)
+            {
+                /* no original list? */
+                l1 = l2;  /* 'l1' points to 'l2' */
+            }
+            else
+            {
+                int list = l1;
+                int next;
+                while ((next = getjump(fs, list)) != Parser.NoJump)
+                {
+                    /* find last element */
+                    list = next;
+                }
+                fixjump(fs, list, l2);  /* last element links to 'l2' */
+            }
         }
 
         /*
@@ -641,7 +663,6 @@ namespace TLua.Parsing
             Proto f = fs.f;
             f.Codes.Add(i);
 			//savelineinfo(fs, f, fs.pc, fs.ls.lastline);
-			trace("pc", fs.pc+1, f.Codes.Count);
             return fs.pc-1;
         }
 

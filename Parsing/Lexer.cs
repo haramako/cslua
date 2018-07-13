@@ -812,7 +812,7 @@ namespace TLua.Parsing
             else
             {
                 t.token = llex(t);  /* read next token */
-				Parser.trace("TK", txtToken(t.token));
+				Parser.trace("TK", txtToken(t.token), linenumber);
             }
         }
 
@@ -828,7 +828,7 @@ namespace TLua.Parsing
         {
             assert(lookahead.token == TokenKind.Eos);
             lookahead.token = llex(lookahead);
-			Parser.trace("TK", txtToken(lookahead.token));
+			Parser.trace("TK", txtToken(lookahead.token), linenumber);
             return lookahead.token;
         }
 

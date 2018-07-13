@@ -83,7 +83,7 @@ namespace TLua
 
         public void Parse(string filename)
         {
-            var file = File.OpenRead(filename);
+            var file = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             var zio = new ZIO(file);
             var c = zio.ReadByte();
             var parser = new Parsing.Parser();

@@ -141,9 +141,11 @@ t = pack(T.testC("concat 5; return *", "alo", 2, 3, "joao", 12))
 tcheck(t, {n=1,"alo23joao12"})
 
 -- testing MULTRET
-t = pack(T.testC("call 2,-1; return *",
-     function (a,b) return 1,2,3,4,a,b end, "alo", "joao"))
-tcheck(t, {n=6,1,2,3,4,"alo", "joao"})
+--t = pack(T.testC("call 2,-1; return *",
+--     function (a,b) return 1,2,3,4,a,b end, "alo", "joao"))
+--tcheck(t, {n=6,1,2,3,4,"alo", "joao"})
+
+mt = {a = 1, b =2}
 
 do  -- test returning more results than fit in the caller stack
   local a = {}
@@ -153,6 +155,7 @@ do  -- test returning more results than fit in the caller stack
   assert(b == "10")
 end
 
+mt = {a = 1, b =2}
 
 -- testing globals
 _G.a = 14; _G.b = "a31"
@@ -164,7 +167,6 @@ local a = {T.testC[[
   return *
 ]]}
 assert(a[2] == 14 and a[3] == "a31" and a[4] == nil and _G.a == "a31")
-
 
 -- testing arith
 assert(T.testC("pushnum 10; pushnum 20; arith /; return 1") == 0.5)
@@ -187,6 +189,7 @@ assert(a == 13 and math.type(a) == "float")
 a,b,c = T.testC([[pushnum 1;
                   pushstring 10; arith _;
                   pushstring 5; return 3]])
+mt = {a = 1, b =2}
 assert(a == 1 and b == -10 and c == "5")
 mt = {__add = function (a,b) return setmetatable({a[1] + b[1]}, mt) end,
       __mod = function (a,b) return setmetatable({a[1] % b[1]}, mt) end,
